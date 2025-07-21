@@ -1,8 +1,8 @@
 import { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../modules/auth/auth.model";
-import { Staff } from "../modules/staff/staff.model";
-import { AdminStaff } from "../modules/admin-staff/admin-staff.model";
+// import { Staff } from "../modules/staff/staff.model";
+// import { AdminStaff } from "../modules/admin-staff/admin-staff.model";
 import { userInterface } from "./userInterface";
 import { appError } from "../errors/appError";
 
@@ -20,9 +20,9 @@ export const auth = (...requiredRoles: string[]) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
 
       // Find user across different collections
-      let user: any = await User.findById(decoded.userId) || 
-                      await Staff.findById(decoded.userId) || 
-                      await AdminStaff.findById(decoded.userId);
+      let user: any = await User.findById(decoded.userId) 
+                      // await Staff.findById(decoded.userId) || 
+                      // await AdminStaff.findById(decoded.userId);
 
       if (!user) {
         return next(new appError("User not found", 401));

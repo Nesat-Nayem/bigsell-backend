@@ -3,7 +3,7 @@ import { User } from "./auth.model";
 import { RequestHandler } from 'express';
 import { activateUserValidation, authValidation, emailCheckValidation, loginValidation, phoneCheckValidation, requestOtpValidation, resetPasswordValidation, updateUserValidation, verifyOtpValidation } from "./auth.validation";
 import { generateToken } from "../../config/generateToken";
-import { AdminStaff } from "../admin-staff/admin-staff.model";
+// import { AdminStaff } from "../admin-staff/admin-staff.model";
 
 export const singUpController: RequestHandler = async (req, res, next): Promise<void> => {
   try {
@@ -239,10 +239,10 @@ export const loginController: RequestHandler = async (req, res, next): Promise<v
     let userType = 'user';
     
     // If not found in User model, try AdminStaff model
-    if (!user) {
-      user = await AdminStaff.findOne({ email });
-      userType = 'admin-staff';
-    }
+    // if (!user) {
+    //   user = await AdminStaff.findOne({ email });
+    //   userType = 'admin-staff';
+    // }
     
     if (!user) {
       res.status(401).json({
@@ -263,15 +263,7 @@ export const loginController: RequestHandler = async (req, res, next): Promise<v
       return;
     }
 
-    // Check if user is active
-    // if (user.status !== 'active') {
-    //   res.status(403).json({
-    //     success: false,
-    //     statusCode: 403,
-    //     message: "Your account is inactive. Please contact the administrator",
-    //   });
-    //   return;
-    // }
+
 
     const token = generateToken(user);
 
