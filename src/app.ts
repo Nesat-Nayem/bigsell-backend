@@ -2,6 +2,7 @@ import express, {Application, Request,Response} from 'express';
 import router from './app/routes';
 import notFound from './app/middlewares/notFound';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
+import { setupSwagger } from './app/config/swagger';
 const app:Application = express();
 import cors from 'cors';
 
@@ -9,6 +10,8 @@ import cors from 'cors';
 app.use(express.json());
 app.use(cors())
 
+// swagger configuration
+setupSwagger(app);
 
 // application routes
 app.use('/v1/api',router)

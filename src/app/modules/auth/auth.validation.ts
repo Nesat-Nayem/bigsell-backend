@@ -26,7 +26,7 @@ export const authValidation = z.object({
   }),
   email: z.string().email("Invalid email format"),
   img: z.string().optional(),
-  role: z.enum(['admin','vendor', 'user'])
+  role: z.enum(['admin','vendor', 'user']).default('user').optional()
 });
 
 export const loginValidation = z.object({
