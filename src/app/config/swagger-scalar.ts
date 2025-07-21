@@ -7,7 +7,7 @@ const options: swaggerJSDoc.Options = {
     info: {
       title: 'BigSell E-commerce API',
       version: '1.0.0',
-      description: 'A comprehensive e-commerce API built with Express.js and TypeScript',
+      // description: 'A comprehensive e-commerce API built with Express.js and TypeScript',
       contact: {
         name: 'BigSell Team',
         email: 'support@bigsell.com',
