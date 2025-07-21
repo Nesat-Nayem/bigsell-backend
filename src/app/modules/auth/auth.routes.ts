@@ -242,55 +242,55 @@ router.post("/reset-password", resetPassword);
  */
 router.post("/activate-user", activateUser);
 
-/**
- * @swagger
- * /v1/api/auth/check-phone:
- *   post:
- *     summary: Check if phone number exists
- *     tags: [Validation]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - phone
- *             properties:
- *               phone:
- *                 type: string
- *     responses:
- *       200:
- *         description: Phone check result
- *       400:
- *         description: Bad request
- */
+// /**
+//  * @swagger
+//  * /v1/api/auth/check-phone:
+//  *   post:
+//  *     summary: Check if phone number exists
+//  *     tags: [Validation]
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - phone
+//  *             properties:
+//  *               phone:
+//  *                 type: string
+//  *     responses:
+//  *       200:
+//  *         description: Phone check result
+//  *       400:
+//  *         description: Bad request
+//  */
 router.post("/check-phone", checkPhoneExists);
 
-/**
- * @swagger
- * /v1/api/auth/check-email:
- *   post:
- *     summary: Check if email exists
- *     tags: [Validation]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Email check result
- *       400:
- *         description: Bad request
- */
+// /**
+//  * @swagger
+//  * /v1/api/auth/check-email:
+//  *   post:
+//  *     summary: Check if email exists
+//  *     tags: [Validation]
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - email
+//  *             properties:
+//  *               email:
+//  *                 type: string
+//  *                 format: email
+//  *     responses:
+//  *       200:
+//  *         description: Email check result
+//  *       400:
+//  *         description: Bad request
+//  */
 router.post("/check-email", checkEmailExists);
 
 /**
