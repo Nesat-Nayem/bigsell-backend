@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.authRouter = void 0;
+const express_1 = __importDefault(require("express"));
+const auth_controller_1 = require("./auth.controller");
+const authMiddleware_1 = require("../../middlewares/authMiddleware");
+const router = express_1.default.Router();
+router.post("/signup", auth_controller_1.singUpController);
+router.post("/signin", auth_controller_1.loginController);
+router.get("/users", (0, authMiddleware_1.auth)('admin'), auth_controller_1.getAllUsers);
+router.get("/user/:id", (0, authMiddleware_1.auth)(), auth_controller_1.getUserById);
+router.post("/reset-password", auth_controller_1.resetPassword);
+router.post("/activate-user", auth_controller_1.activateUser);
+router.post("/check-phone", auth_controller_1.checkPhoneExists);
+router.post("/check-email", auth_controller_1.checkEmailExists);
+router.patch("/user/:id", (0, authMiddleware_1.auth)(), auth_controller_1.updateUser);
+router.post("/request-otp", auth_controller_1.requestOtp);
+router.post("/verify-otp", auth_controller_1.verifyOtp);
+exports.authRouter = router;
