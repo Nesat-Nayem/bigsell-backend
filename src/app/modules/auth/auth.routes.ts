@@ -213,33 +213,33 @@ router.get("/user/:id", auth(), getUserById);
  */
 router.post("/reset-password", resetPassword);
 
-/**
- * @swagger
- * /v1/api/auth/activate-user:
- *   post:
- *     summary: Activate user account
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - activationCode
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               activationCode:
- *                 type: string
- *     responses:
- *       200:
- *         description: User activated successfully
- *       400:
- *         description: Invalid activation code
- */
+// /**
+//  * @swagger
+//  * /v1/api/auth/activate-user:
+//  *   post:
+//  *     summary: Activate user account
+//  *     tags: [Authentication]
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - email
+//  *               - activationCode
+//  *             properties:
+//  *               email:
+//  *                 type: string
+//  *                 format: email
+//  *               activationCode:
+//  *                 type: string
+//  *     responses:
+//  *       200:
+//  *         description: User activated successfully
+//  *       400:
+//  *         description: Invalid activation code
+//  */
 router.post("/activate-user", activateUser);
 
 // /**
