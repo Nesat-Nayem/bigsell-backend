@@ -22,7 +22,7 @@ exports.authValidation = zod_1.z.object({
     }),
     email: zod_1.z.string().email("Invalid email format"),
     img: zod_1.z.string().optional(),
-    role: zod_1.z.enum(['admin', 'vendor', 'user'])
+    role: zod_1.z.enum(['admin', 'vendor', 'user']).default('user').optional()
 });
 exports.loginValidation = zod_1.z.object({
     email: zod_1.z.string().email("Invalid email format"),

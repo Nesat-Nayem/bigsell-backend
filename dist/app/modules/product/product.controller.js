@@ -12,99 +12,110 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProductById = exports.updateProductById = exports.getProductById = exports.getAllProducts = exports.createProduct = void 0;
+exports.getProductFilters = exports.searchProducts = exports.getProductsByCategory = exports.getNewArrivalProducts = exports.getTrendingProducts = exports.getFeaturedProducts = exports.deleteProduct = exports.updateProduct = exports.getProductById = exports.getAllProducts = exports.createProduct = void 0;
 const product_model_1 = require("./product.model");
-const product_validation_1 = require("./product.validation");
-const appError_1 = require("../../errors/appError");
-const cloudinary_1 = require("../../config/cloudinary");
-const category_model_1 = require("../category/category.model");
 const mongoose_1 = __importDefault(require("mongoose"));
+const appError_1 = require("../../errors/appError");
+// Create a new product
 const createProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
     try {
-        const { name, description, category, sizes, addons } = req.body;
-        // Check if product with same name already exists
-        const existingProduct = yield product_model_1.Product.findOne({ name, isDeleted: false });
-        if (existingProduct) {
-            next(new appError_1.appError("Product with this name already exists", 400));
+        const productData = req.body;
+        // Check if SKU already exists
+        const existingSku = yield product_model_1.Product.findOne({ sku: productData.sku, isDeleted: false });
+        if (existingSku) {
+            next(new appError_1.appError('Product with this SKU already exists', 400));
             return;
         }
-        // Check if category exists
-        const categoryExists = yield category_model_1.Category.findOne({ _id: category, isDeleted: false });
-        if (!categoryExists) {
-            next(new appError_1.appError("Category not found", 404));
-            return;
-        }
-        // If image is uploaded through multer middleware, req.file will be available
-        if (!req.file) {
-            next(new appError_1.appError("Image is required", 400));
-            return;
-        }
-        // Get the image URL from req.file
-        const image = req.file.path;
-        // Parse JSON for sizes and addons if they're sent as strings
-        const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
-        const parsedAddons = typeof addons === 'string' ? JSON.parse(addons) : addons || [];
-        // Validate the input
-        const validatedData = product_validation_1.productValidation.parse({
-            name,
-            description,
-            image,
-            category,
-            sizes: parsedSizes,
-            addons: parsedAddons
-        });
-        // Create a new product
-        const product = new product_model_1.Product(validatedData);
-        yield product.save();
+        const result = yield product_model_1.Product.create(productData);
+        const populatedResult = yield product_model_1.Product.findById(result._id).populate('category', 'title');
         res.status(201).json({
             success: true,
             statusCode: 201,
-            message: "Product created successfully",
-            data: product,
+            message: 'Product created successfully',
+            data: populatedResult,
         });
         return;
     }
     catch (error) {
-        // If error is during image upload, delete the uploaded image if any
-        if ((_a = req.file) === null || _a === void 0 ? void 0 : _a.path) {
-            const publicId = (_b = req.file.path.split('/').pop()) === null || _b === void 0 ? void 0 : _b.split('.')[0];
-            if (publicId) {
-                yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-products/${publicId}`);
-            }
-        }
         next(error);
     }
 });
 exports.createProduct = createProduct;
+// Get all products with filtering, sorting, and pagination
 const getAllProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { category, search } = req.query;
+        const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', category, subcategory, brand, minPrice, maxPrice, inStock, status = 'active', isFeatured, isTrending, isNewArrival, colors, sizes, rating, search, } = req.query;
+        // Build filter object
         const filter = { isDeleted: false };
-        // Add category filter if provided
-        if (category && mongoose_1.default.Types.ObjectId.isValid(category)) {
+        if (status)
+            filter.status = status;
+        if (category)
             filter.category = category;
+        if (subcategory)
+            filter.subcategory = new RegExp(subcategory, 'i');
+        if (brand)
+            filter.brand = new RegExp(brand, 'i');
+        if (isFeatured !== undefined)
+            filter.isFeatured = isFeatured === 'true';
+        if (isTrending !== undefined)
+            filter.isTrending = isTrending === 'true';
+        if (isNewArrival !== undefined)
+            filter.isNewArrival = isNewArrival === 'true';
+        if (inStock !== undefined) {
+            filter.stock = inStock === 'true' ? { $gt: 0 } : 0;
         }
-        // Add search filter if provided
+        // Price range filter
+        if (minPrice || maxPrice) {
+            filter.price = {};
+            if (minPrice)
+                filter.price.$gte = Number(minPrice);
+            if (maxPrice)
+                filter.price.$lte = Number(maxPrice);
+        }
+        // Colors filter
+        if (colors) {
+            const colorArray = colors.split(',');
+            filter.colors = { $in: colorArray };
+        }
+        // Sizes filter
+        if (sizes) {
+            const sizeArray = sizes.split(',');
+            filter.sizes = { $in: sizeArray };
+        }
+        // Rating filter
+        if (rating) {
+            filter.rating = { $gte: Number(rating) };
+        }
+        // Search filter
         if (search) {
-            filter.name = { $regex: search, $options: 'i' }; // Case-insensitive search
+            filter.$text = { $search: search };
         }
-        const products = yield product_model_1.Product.find(filter)
-            .populate('category', 'title')
-            .sort({ createdAt: -1 });
-        if (products.length === 0) {
-            res.json({
-                success: true,
-                statusCode: 200,
-                message: "No products found",
-                data: [],
-            });
-            return;
-        }
-        res.json({
+        // Sorting
+        const sortOrder = order === 'asc' ? 1 : -1;
+        const sortObj = {};
+        sortObj[sort] = sortOrder;
+        // Pagination
+        const skip = (Number(page) - 1) * Number(limit);
+        const [products, total] = yield Promise.all([
+            product_model_1.Product.find(filter)
+                .populate('category', 'title')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            product_model_1.Product.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
+        res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Products retrieved successfully",
+            message: 'Products retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
             data: products,
         });
         return;
@@ -114,20 +125,25 @@ const getAllProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
     }
 });
 exports.getAllProducts = getAllProducts;
+// Get single product by ID
 const getProductById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const product = yield product_model_1.Product.findOne({
-            _id: req.params.id,
-            isDeleted: false
-        }).populate('category', 'title');
-        if (!product) {
-            next(new appError_1.appError("Product not found", 404));
+        const { id } = req.params;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid product ID', 400));
             return;
         }
-        res.json({
+        const product = yield product_model_1.Product.findOne({ _id: id, isDeleted: false })
+            .populate('category', 'title')
+            .lean();
+        if (!product) {
+            next(new appError_1.appError('Product not found', 404));
+            return;
+        }
+        res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Product retrieved successfully",
+            message: 'Product retrieved successfully',
             data: product,
         });
         return;
@@ -137,118 +153,274 @@ const getProductById = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
     }
 });
 exports.getProductById = getProductById;
-const updateProductById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+// Update product
+const updateProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const productId = req.params.id;
-        const { name, description, category, sizes, addons } = req.body;
-        // Find the product to update
-        const product = yield product_model_1.Product.findOne({
-            _id: productId,
-            isDeleted: false
-        });
-        if (!product) {
-            next(new appError_1.appError("Product not found", 404));
-        }
-        // Prepare update data
-        const updateData = {};
-        if (name) {
-            // Check if new name already exists
-            if (name !== (product === null || product === void 0 ? void 0 : product.name)) {
-                const existingProduct = yield product_model_1.Product.findOne({
-                    name,
-                    isDeleted: false,
-                    _id: { $ne: productId }
-                });
-                if (existingProduct) {
-                    next(new appError_1.appError("Product with this name already exists", 400));
-                }
-            }
-            updateData.name = name;
-        }
-        if (description) {
-            updateData.description = description;
-        }
-        if (category) {
-            // Check if category exists
-            const categoryExists = yield category_model_1.Category.findOne({ _id: category, isDeleted: false });
-            if (!categoryExists) {
-                next(new appError_1.appError("Category not found", 404));
-                return;
-            }
-            updateData.category = category;
-        }
-        if (sizes) {
-            // Parse JSON if sizes is sent as a string
-            const parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
-            updateData.sizes = parsedSizes;
-        }
-        if (addons) {
-            // Parse JSON if addons is sent as a string
-            const parsedAddons = typeof addons === 'string' ? JSON.parse(addons) : addons;
-            updateData.addons = parsedAddons;
-        }
-        // If there's a new image
-        if (req.file) {
-            updateData.image = req.file.path;
-            // Delete the old image from cloudinary if it exists
-            if (product === null || product === void 0 ? void 0 : product.image) {
-                const publicId = (_a = product === null || product === void 0 ? void 0 : product.image.split('/').pop()) === null || _a === void 0 ? void 0 : _a.split('.')[0];
-                if (publicId) {
-                    yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-products/${publicId}`);
-                }
-            }
-        }
-        // Validate the update data
-        if (Object.keys(updateData).length > 0) {
-            const validatedData = product_validation_1.productUpdateValidation.parse(updateData);
-            // Update the product
-            const updatedProduct = yield product_model_1.Product.findByIdAndUpdate(productId, validatedData, { new: true }).populate('category', 'title');
-            res.json({
-                success: true,
-                statusCode: 200,
-                message: "Product updated successfully",
-                data: updatedProduct,
-            });
+        const { id } = req.params;
+        const updateData = req.body;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid product ID', 400));
             return;
         }
-        // If no updates provided
-        res.json({
+        // Check if product exists
+        const existingProduct = yield product_model_1.Product.findOne({ _id: id, isDeleted: false });
+        if (!existingProduct) {
+            next(new appError_1.appError('Product not found', 404));
+            return;
+        }
+        // Check if SKU is being updated and if it already exists
+        if (updateData.sku && updateData.sku !== existingProduct.sku) {
+            const existingSku = yield product_model_1.Product.findOne({
+                sku: updateData.sku,
+                isDeleted: false,
+                _id: { $ne: id }
+            });
+            if (existingSku) {
+                next(new appError_1.appError('Product with this SKU already exists', 400));
+                return;
+            }
+        }
+        const result = yield product_model_1.Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate('category', 'title');
+        res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "No changes to update",
-            data: product,
+            message: 'Product updated successfully',
+            data: result,
         });
         return;
     }
     catch (error) {
-        // If error occurs and image was uploaded, delete it
-        if ((_b = req.file) === null || _b === void 0 ? void 0 : _b.path) {
-            const publicId = (_c = req.file.path.split('/').pop()) === null || _c === void 0 ? void 0 : _c.split('.')[0];
-            if (publicId) {
-                yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-products/${publicId}`);
-            }
-        }
         next(error);
     }
 });
-exports.updateProductById = updateProductById;
-const deleteProductById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.updateProduct = updateProduct;
+// Delete product (soft delete)
+const deleteProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const product = yield product_model_1.Product.findOneAndUpdate({ _id: req.params.id, isDeleted: false }, { isDeleted: true }, { new: true });
-        if (!product) {
-            next(new appError_1.appError("Product not found", 404));
+        const { id } = req.params;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid product ID', 400));
             return;
         }
-        res.json({
+        const result = yield product_model_1.Product.findByIdAndUpdate(id, { isDeleted: true }, { new: true });
+        if (!result) {
+            next(new appError_1.appError('Product not found', 404));
+            return;
+        }
+        res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Product deleted successfully",
-            data: product,
+            message: 'Product deleted successfully',
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.deleteProductById = deleteProductById;
+exports.deleteProduct = deleteProduct;
+// Get featured products
+const getFeaturedProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isFeatured: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ createdAt: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Featured products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getFeaturedProducts = getFeaturedProducts;
+// Get trending products
+const getTrendingProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isTrending: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ rating: -1, reviewCount: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Trending products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getTrendingProducts = getTrendingProducts;
+// Get new arrival products
+const getNewArrivalProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isNewArrival: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ createdAt: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'New arrival products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getNewArrivalProducts = getNewArrivalProducts;
+// Get products by category
+const getProductsByCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { categoryId } = req.params;
+        const { page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query;
+        if (!mongoose_1.default.Types.ObjectId.isValid(categoryId)) {
+            next(new appError_1.appError('Invalid category ID', 400));
+            return;
+        }
+        const filter = {
+            category: categoryId,
+            status: 'active',
+            isDeleted: false,
+        };
+        const sortOrder = order === 'asc' ? 1 : -1;
+        const sortObj = {};
+        sortObj[sort] = sortOrder;
+        const skip = (Number(page) - 1) * Number(limit);
+        const [products, total] = yield Promise.all([
+            product_model_1.Product.find(filter)
+                .populate('category', 'title')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            product_model_1.Product.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Products retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getProductsByCategory = getProductsByCategory;
+// Search products
+const searchProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { q, page = 1, limit = 10 } = req.query;
+        if (!q) {
+            next(new appError_1.appError('Search query is required', 400));
+            return;
+        }
+        const filter = {
+            $text: { $search: q },
+            status: 'active',
+            isDeleted: false,
+        };
+        const skip = (Number(page) - 1) * Number(limit);
+        const [products, total] = yield Promise.all([
+            product_model_1.Product.find(filter, { score: { $meta: 'textScore' } })
+                .populate('category', 'title')
+                .sort({ score: { $meta: 'textScore' } })
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            product_model_1.Product.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Products found successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.searchProducts = searchProducts;
+// Get product filters (for frontend filter options)
+const getProductFilters = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const [brands, colors, sizes, priceRange] = yield Promise.all([
+            product_model_1.Product.distinct('brand', { status: 'active', isDeleted: false }),
+            product_model_1.Product.distinct('colors', { status: 'active', isDeleted: false }),
+            product_model_1.Product.distinct('sizes', { status: 'active', isDeleted: false }),
+            product_model_1.Product.aggregate([
+                { $match: { status: 'active', isDeleted: false } },
+                {
+                    $group: {
+                        _id: null,
+                        minPrice: { $min: '$price' },
+                        maxPrice: { $max: '$price' },
+                    },
+                },
+            ]),
+        ]);
+        const filters = {
+            brands: brands.filter(Boolean),
+            colors: colors.flat().filter(Boolean),
+            sizes: sizes.flat().filter(Boolean),
+            priceRange: priceRange[0] || { minPrice: 0, maxPrice: 0 },
+        };
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Product filters retrieved successfully',
+            data: filters,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getProductFilters = getProductFilters;

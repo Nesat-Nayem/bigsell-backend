@@ -12,326 +12,273 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearCart = exports.removeCartItem = exports.updateCartItem = exports.getCart = exports.addToCart = void 0;
+exports.getCartSummary = exports.clearCart = exports.removeFromCart = exports.updateCartItem = exports.addToCart = exports.getCart = void 0;
 const cart_model_1 = require("./cart.model");
-const hotel_model_1 = require("../hotel/hotel.model");
-const cart_validation_1 = require("./cart.validation");
-const appError_1 = require("../../errors/appError");
+const product_model_1 = require("../product/product.model");
 const mongoose_1 = __importDefault(require("mongoose"));
-// Helper function to calculate item price
-const calculateItemPrice = (hotelId, menuItemId, quantity, size, addons) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    // Get hotel details
-    const hotel = yield hotel_model_1.Hotel.findById(hotelId);
-    if (!hotel) {
-        throw new appError_1.appError("Hotel not found", 404);
-    }
-    // Find the menu item in any category
-    let menuItem = null;
-    for (const category of hotel.menuCategories) {
-        const item = category.items.find(item => item.id === menuItemId);
-        if (item) {
-            menuItem = item;
-            break;
-        }
-    }
-    if (!menuItem) {
-        throw new appError_1.appError("Menu item not found", 404);
-    }
-    // Get price for selected size
-    let basePrice = 0;
-    const selectedSize = (_a = menuItem.options) === null || _a === void 0 ? void 0 : _a.find(s => s.label === size);
-    if (menuItem.options && menuItem.options.length > 0) {
-        if (!selectedSize) {
-            throw new appError_1.appError(`Size ${size} not available for this menu item`, 400);
-        }
-        basePrice = selectedSize.price;
-    }
-    else {
-        basePrice = menuItem.price;
-    }
-    let price = basePrice; // Price for one item
-    // Add addon prices if any
-    if (addons && addons.length > 0 && menuItem.addons) {
-        for (const addon of addons) {
-            const menuItemAddon = menuItem.addons.find((a) => a.key === addon.key);
-            if (!menuItemAddon) {
-                throw new appError_1.appError(`Addon ${addon.key} not available for this menu item`, 400);
-            }
-            price += menuItemAddon.price * addon.quantity;
-        }
-    }
-    return price * quantity; // Total price for the given quantity
-});
-// Helper function to get the correct cart (personal or shared table cart)
-const getCartForRequest = (req) => __awaiter(void 0, void 0, void 0, function* () {
-    // Check body, then query for table info
-    const hotelId = req.body.hotelId || req.query.hotelId;
-    const tableNumber = req.body.tableNumber || req.query.tableNumber;
-    const userId = req.user._id;
-    console.log("getCartForRequest - hotelId:", hotelId, "tableNumber:", tableNumber, "userId:", userId);
-    if (hotelId && tableNumber) {
-        const tableIdentifier = `${hotelId}_${tableNumber}`;
-        console.log("Looking for cart with tableIdentifier:", tableIdentifier);
-        let cart = yield cart_model_1.Cart.findOne({ tableIdentifier });
-        console.log("Found cart:", cart ? "Yes" : "No");
-        if (!cart) {
-            console.log("Creating new cart with tableIdentifier:", tableIdentifier);
-            cart = new cart_model_1.Cart({
-                tableIdentifier,
-                users: [userId],
-                items: [],
-                totalAmount: 0,
-            });
-        }
-        else {
-            // Add user to the shared cart if they aren't already in it
-            if (!cart.users) {
-                cart.users = [];
-            }
-            if (!cart.users.find(u => u.equals(userId))) {
-                cart.users.push(userId);
-                console.log("Added user to existing cart");
-            }
-        }
-        return cart;
-    }
-    else {
-        console.log("No hotelId/tableNumber provided, using personal cart");
-        // Fallback to personal cart for users not at a table
-        let cart = yield cart_model_1.Cart.findOne({ user: userId });
-        if (!cart) {
-            cart = new cart_model_1.Cart({
-                user: userId,
-                items: [],
-                totalAmount: 0,
-            });
-        }
-        return cart;
-    }
-});
-// Helper to populate cart details for the response
-const populateCartResponse = (cart) => __awaiter(void 0, void 0, void 0, function* () {
-    const populatedCart = yield cart.populate([
-        { path: 'users', select: 'name' },
-        { path: 'items.orderedBy', select: 'name' }
-    ]);
-    const populatedItems = yield Promise.all(populatedCart.items.map((item) => __awaiter(void 0, void 0, void 0, function* () {
-        const hotel = yield hotel_model_1.Hotel.findById(item.hotelId);
-        let menuItemData = null;
-        if (hotel) {
-            for (const category of hotel.menuCategories) {
-                const menuItem = category.items.find((mi) => mi.id === item.menuItem);
-                if (menuItem) {
-                    menuItemData = {
-                        id: menuItem.id,
-                        title: menuItem.title,
-                        image: menuItem.image,
-                        description: menuItem.description,
-                        price: menuItem.price, // Base price
-                        sizes: menuItem.options,
-                        addons: menuItem.addons,
-                        category: category.name,
-                    };
-                    break;
-                }
-            }
-        }
-        return Object.assign(Object.assign({}, item.toObject()), { menuItemData });
-    })));
-    let hotelInfo = null;
-    if (populatedCart.items.length > 0) {
-        const hotel = yield hotel_model_1.Hotel.findById(populatedCart.items[0].hotelId);
-        if (hotel) {
-            hotelInfo = {
-                cgstRate: hotel.cgstRate,
-                sgstRate: hotel.sgstRate,
-                serviceCharge: hotel.serviceCharge
-            };
-        }
-    }
-    return Object.assign(Object.assign({}, populatedCart.toObject()), { items: populatedItems, hotelInfo });
-});
-// Add to cart
-const addToCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { menuItemId, hotelId, quantity, size, addons = [], specialInstructions = "" } = cart_validation_1.addToCartValidation.parse(req.body);
-        const cart = yield getCartForRequest(req);
-        // Calculate price for the new items
-        const price = yield calculateItemPrice(hotelId, menuItemId, quantity, size, addons);
-        // For shared carts, treat items with different special instructions as separate entries
-        const isSharedCart = !!cart.tableIdentifier;
-        // Check if menu item already in cart with same size and addons
-        const existingItemIndex = cart.items.findIndex(item => {
-            var _a;
-            return item.menuItem === menuItemId && item.size === size &&
-                // For shared carts, we also need to match the user who ordered it
-                // And if instructions are different, treat as a new item.
-                (!isSharedCart || (((_a = item.orderedBy) === null || _a === void 0 ? void 0 : _a.equals(req.user._id)) && item.specialInstructions === specialInstructions));
-        });
-        if (existingItemIndex > -1 && !isSharedCart) {
-            // For personal carts, just update the quantity and price
-            cart.items[existingItemIndex].quantity += quantity;
-            cart.items[existingItemIndex].price += price;
-            if (specialInstructions) {
-                cart.items[existingItemIndex].specialInstructions = specialInstructions;
-            }
-        }
-        else {
-            // Add new item
-            cart.items.push({
-                menuItem: menuItemId,
-                hotelId: new mongoose_1.default.Types.ObjectId(hotelId),
-                quantity,
-                size,
-                addons,
-                price,
-                specialInstructions,
-                orderedBy: req.user._id
-            });
-        }
-        // Recalculate total
-        cart.totalAmount = cart.items.reduce((total, item) => total + item.price, 0);
-        yield cart.save();
-        const responseData = yield populateCartResponse(cart);
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Menu item added to cart",
-            data: responseData
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.addToCart = addToCart;
-// Get cart
+const appError_1 = require("../../errors/appError");
+// Get user's cart
 const getCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        console.log("getCart - query params:", req.query);
-        console.log("getCart - body params:", req.body);
-        const cart = yield getCartForRequest(req);
-        console.log("getCart - found cart:", cart ? cart._id : "none");
-        console.log("getCart - cart items count:", cart ? cart.items.length : 0);
-        if (!cart || cart.items.length === 0) {
-            res.status(200).json({
-                success: true,
-                statusCode: 200,
-                message: "Cart is empty",
-                data: {
-                    items: [],
-                    totalAmount: 0,
-                    users: (cart === null || cart === void 0 ? void 0 : cart.users) || [],
-                    tableIdentifier: (cart === null || cart === void 0 ? void 0 : cart.tableIdentifier) || null
-                }
-            });
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { populate = 'true' } = req.query;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
             return;
         }
-        const responseData = yield populateCartResponse(cart);
+        let cart;
+        if (populate === 'true') {
+            cart = yield cart_model_1.Cart.findUserCart(userId);
+        }
+        else {
+            cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
+        }
+        if (!cart) {
+            // Create empty cart if doesn't exist
+            cart = yield cart_model_1.Cart.create({ user: userId, items: [] });
+        }
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Cart retrieved successfully",
-            data: responseData
+            message: 'Cart retrieved successfully',
+            data: cart,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
 exports.getCart = getCart;
-// Update cart item
-const updateCartItem = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+// Add item to cart
+const addToCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { itemId, quantity, specialInstructions } = cart_validation_1.updateCartItemValidation.parse(req.body);
-        const cart = yield getCartForRequest(req);
+        const userId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { productId, quantity, selectedColor, selectedSize } = req.body;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        if (!mongoose_1.default.Types.ObjectId.isValid(productId)) {
+            next(new appError_1.appError('Invalid product ID', 400));
+            return;
+        }
+        // Check if product exists and is available
+        const product = yield product_model_1.Product.findOne({
+            _id: productId,
+            isDeleted: false,
+            status: 'active'
+        });
+        if (!product) {
+            next(new appError_1.appError('Product not found or unavailable', 404));
+            return;
+        }
+        // Check stock availability
+        if (product.stock < quantity) {
+            next(new appError_1.appError(`Only ${product.stock} items available in stock`, 400));
+            return;
+        }
+        // Check if selected color/size is available
+        if (selectedColor && !product.colors.includes(selectedColor)) {
+            next(new appError_1.appError('Selected color is not available', 400));
+            return;
+        }
+        if (selectedSize && !product.sizes.includes(selectedSize)) {
+            next(new appError_1.appError('Selected size is not available', 400));
+            return;
+        }
+        // Find or create user's cart
+        let cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
         if (!cart) {
-            next(new appError_1.appError("Cart not found", 404));
-            return;
+            cart = new cart_model_1.Cart({ user: userId, items: [] });
         }
-        const itemIndex = cart.items.findIndex(item => { var _a; return ((_a = item._id) === null || _a === void 0 ? void 0 : _a.toString()) === itemId; });
-        if (itemIndex === -1) {
-            next(new appError_1.appError("Item not found in cart", 404));
-            return;
-        }
-        const itemToUpdate = cart.items[itemIndex];
-        const oldQuantity = itemToUpdate.quantity;
-        const pricePerItem = itemToUpdate.price / oldQuantity;
-        if (quantity) {
-            itemToUpdate.quantity = quantity;
-            itemToUpdate.price = pricePerItem * quantity;
-        }
-        if (specialInstructions !== undefined) {
-            itemToUpdate.specialInstructions = specialInstructions;
-        }
-        cart.items[itemIndex] = itemToUpdate;
-        // Recalculate total
-        cart.totalAmount = cart.items.reduce((total, item) => total + item.price, 0);
-        yield cart.save();
-        const responseData = yield populateCartResponse(cart);
+        // Add item to cart
+        yield cart.addItem(productId, quantity, product.price, selectedColor, selectedSize);
+        // Populate the cart with product details
+        const populatedCart = yield cart_model_1.Cart.findUserCart(userId);
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Cart item updated",
-            data: responseData
+            message: 'Item added to cart successfully',
+            data: populatedCart,
         });
+        return;
     }
     catch (error) {
+        next(error);
+    }
+});
+exports.addToCart = addToCart;
+// Update cart item quantity
+const updateCartItem = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { productId } = req.params;
+        const { quantity, selectedColor, selectedSize } = req.body;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        if (!mongoose_1.default.Types.ObjectId.isValid(productId)) {
+            next(new appError_1.appError('Invalid product ID', 400));
+            return;
+        }
+        // Find user's cart
+        const cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
+        if (!cart) {
+            next(new appError_1.appError('Cart not found', 404));
+            return;
+        }
+        // Check if product exists and is available
+        const product = yield product_model_1.Product.findOne({
+            _id: productId,
+            isDeleted: false,
+            status: 'active'
+        });
+        if (!product) {
+            next(new appError_1.appError('Product not found or unavailable', 404));
+            return;
+        }
+        // Check stock availability
+        if (product.stock < quantity) {
+            next(new appError_1.appError(`Only ${product.stock} items available in stock`, 400));
+            return;
+        }
+        // Update item in cart
+        yield cart.updateItem(productId, quantity, selectedColor, selectedSize);
+        // Get updated cart with populated data
+        const updatedCart = yield cart_model_1.Cart.findUserCart(userId);
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Cart item updated successfully',
+            data: updatedCart,
+        });
+        return;
+    }
+    catch (error) {
+        if (error instanceof Error && error.message === 'Item not found in cart') {
+            next(new appError_1.appError('Item not found in cart', 404));
+            return;
+        }
         next(error);
     }
 });
 exports.updateCartItem = updateCartItem;
 // Remove item from cart
-const removeCartItem = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+const removeFromCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { itemId } = req.params;
-        const cart = yield getCartForRequest(req);
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { productId } = req.params;
+        const { selectedColor, selectedSize } = req.query;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        if (!mongoose_1.default.Types.ObjectId.isValid(productId)) {
+            next(new appError_1.appError('Invalid product ID', 400));
+            return;
+        }
+        // Find user's cart
+        const cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
         if (!cart) {
-            next(new appError_1.appError("Cart not found", 404));
+            next(new appError_1.appError('Cart not found', 404));
             return;
         }
-        const itemIndex = cart.items.findIndex(item => { var _a; return ((_a = item._id) === null || _a === void 0 ? void 0 : _a.toString()) === itemId; });
-        if (itemIndex === -1) {
-            next(new appError_1.appError("Item not found in cart", 404));
-            return;
-        }
-        cart.items.splice(itemIndex, 1);
-        cart.totalAmount = cart.items.reduce((total, item) => total + item.price, 0);
-        yield cart.save();
-        const responseData = yield populateCartResponse(cart);
+        // Remove item from cart
+        yield cart.removeItem(productId, selectedColor, selectedSize);
+        // Get updated cart with populated data
+        const updatedCart = yield cart_model_1.Cart.findUserCart(userId);
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Item removed from cart",
-            data: responseData
+            message: 'Item removed from cart successfully',
+            data: updatedCart,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.removeCartItem = removeCartItem;
-// Clear cart
+exports.removeFromCart = removeFromCart;
+// Clear entire cart
 const clearCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const cart = yield getCartForRequest(req);
-        if (cart) {
-            cart.items = [];
-            cart.totalAmount = 0;
-            cart.appliedCouponCode = undefined;
-            cart.discountAmount = 0;
-            yield cart.save();
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
         }
+        // Find user's cart
+        const cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
+        if (!cart) {
+            next(new appError_1.appError('Cart not found', 404));
+            return;
+        }
+        // Clear all items from cart
+        yield cart.clearCart();
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Cart cleared",
-            data: { items: [], totalAmount: 0 }
+            message: 'Cart cleared successfully',
+            data: {
+                user: userId,
+                items: [],
+                totalItems: 0,
+                totalPrice: 0,
+                itemCount: 0,
+            },
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
 exports.clearCart = clearCart;
+// Get cart summary (lightweight version)
+const getCartSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        const cart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
+        if (!cart) {
+            res.status(200).json({
+                success: true,
+                statusCode: 200,
+                message: 'Cart summary retrieved successfully',
+                data: {
+                    totalItems: 0,
+                    totalPrice: 0,
+                    itemCount: 0,
+                },
+            });
+            return;
+        }
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Cart summary retrieved successfully',
+            data: {
+                totalItems: cart.totalItems,
+                totalPrice: cart.totalPrice,
+                itemCount: cart.items.length,
+            },
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getCartSummary = getCartSummary;

@@ -1,27 +1,56 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateCartItemValidation = exports.addToCartValidation = void 0;
+exports.CartValidation = exports.getCartValidation = exports.removeCartItemValidation = exports.updateCartItemValidation = exports.addToCartValidation = void 0;
 const zod_1 = require("zod");
-const cartItemAddonSchema = zod_1.z.object({
-    key: zod_1.z.string().min(1, "Addon key is required"),
-    quantity: zod_1.z.number().int().min(1, "Quantity must be at least 1")
-});
+// Add to Cart Validation
 exports.addToCartValidation = zod_1.z.object({
-    // Change from productId to menuItemId and hotelId
-    menuItemId: zod_1.z.string().min(1, "Menu item ID is required"),
-    hotelId: zod_1.z.string().min(1, "Hotel ID is required"),
-    quantity: zod_1.z.number().int().min(1, "Quantity must be at least 1"),
-    size: zod_1.z.string().min(1, "Size is required"),
-    addons: zod_1.z.array(cartItemAddonSchema).optional(),
-    specialInstructions: zod_1.z.string().optional(),
-    tableNumber: zod_1.z.string().optional(),
+    body: zod_1.z.object({
+        productId: zod_1.z.string({
+            required_error: 'Product ID is required',
+        }).min(1, 'Product ID cannot be empty'),
+        quantity: zod_1.z.number({
+            required_error: 'Quantity is required',
+        }).int().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
+        selectedColor: zod_1.z.string().optional(),
+        selectedSize: zod_1.z.string().optional(),
+    }),
 });
+// Update Cart Item Validation
 exports.updateCartItemValidation = zod_1.z.object({
-    itemId: zod_1.z.string().min(1, "Item ID is required"),
-    quantity: zod_1.z.number().int().min(1, "Quantity must be at least 1").optional(),
-    size: zod_1.z.string().min(1, "Size is required").optional(),
-    addons: zod_1.z.array(cartItemAddonSchema).optional(),
-    specialInstructions: zod_1.z.string().optional(),
-    hotelId: zod_1.z.string().optional(),
-    tableNumber: zod_1.z.string().optional(),
+    params: zod_1.z.object({
+        productId: zod_1.z.string({
+            required_error: 'Product ID is required',
+        }).min(1, 'Product ID cannot be empty'),
+    }),
+    body: zod_1.z.object({
+        quantity: zod_1.z.number({
+            required_error: 'Quantity is required',
+        }).int().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
+        selectedColor: zod_1.z.string().optional(),
+        selectedSize: zod_1.z.string().optional(),
+    }),
 });
+// Remove Cart Item Validation
+exports.removeCartItemValidation = zod_1.z.object({
+    params: zod_1.z.object({
+        productId: zod_1.z.string({
+            required_error: 'Product ID is required',
+        }).min(1, 'Product ID cannot be empty'),
+    }),
+    query: zod_1.z.object({
+        selectedColor: zod_1.z.string().optional(),
+        selectedSize: zod_1.z.string().optional(),
+    }).optional(),
+});
+// Get Cart Validation (optional query parameters)
+exports.getCartValidation = zod_1.z.object({
+    query: zod_1.z.object({
+        populate: zod_1.z.enum(['true', 'false']).optional().default('true'),
+    }).optional(),
+});
+exports.CartValidation = {
+    addToCartValidation: exports.addToCartValidation,
+    updateCartItemValidation: exports.updateCartItemValidation,
+    removeCartItemValidation: exports.removeCartItemValidation,
+    getCartValidation: exports.getCartValidation,
+};

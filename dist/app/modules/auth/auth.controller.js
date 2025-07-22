@@ -24,7 +24,7 @@ exports.checkEmailExists = exports.checkPhoneExists = exports.activateUser = exp
 const auth_model_1 = require("./auth.model");
 const auth_validation_1 = require("./auth.validation");
 const generateToken_1 = require("../../config/generateToken");
-const admin_staff_model_1 = require("../admin-staff/admin-staff.model");
+// import { AdminStaff } from "../admin-staff/admin-staff.model";
 const singUpController = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name, password, img, phone, email, role } = auth_validation_1.authValidation.parse(req.body);
@@ -218,10 +218,10 @@ const loginController = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
         let user = yield auth_model_1.User.findOne({ email });
         let userType = 'user';
         // If not found in User model, try AdminStaff model
-        if (!user) {
-            user = yield admin_staff_model_1.AdminStaff.findOne({ email });
-            userType = 'admin-staff';
-        }
+        // if (!user) {
+        //   user = await AdminStaff.findOne({ email });
+        //   userType = 'admin-staff';
+        // }
         if (!user) {
             res.status(401).json({
                 success: false,
@@ -239,15 +239,6 @@ const loginController = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
             });
             return;
         }
-        // Check if user is active
-        // if (user.status !== 'active') {
-        //   res.status(403).json({
-        //     success: false,
-        //     statusCode: 403,
-        //     message: "Your account is inactive. Please contact the administrator",
-        //   });
-        //   return;
-        // }
         const token = (0, generateToken_1.generateToken)(user);
         // remove password
         const _a = user.toObject(), { password: _ } = _a, userObject = __rest(_a, ["password"]);

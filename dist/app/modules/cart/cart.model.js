@@ -35,78 +35,143 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Cart = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
+// Cart Item Schema
 const CartItemSchema = new mongoose_1.Schema({
-    // Change from product to menuItem and hotelId
-    menuItem: {
-        type: String, // Menu item ID is a string
-        required: true
-    },
-    hotelId: {
+    product: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'Hotel',
-        required: true
+        ref: 'Product',
+        required: true,
     },
     quantity: {
         type: Number,
         required: true,
-        min: 1
+        min: 1,
+        default: 1,
     },
-    size: {
-        type: String,
-        required: true
-    },
-    addons: [{
-            key: {
-                type: String,
-                required: true
-            },
-            quantity: {
-                type: Number,
-                required: true,
-                min: 1
-            }
-        }],
     price: {
         type: Number,
-        required: true
+        required: true,
+        min: 0,
     },
-    specialInstructions: {
+    selectedColor: {
         type: String,
-        default: ""
+        trim: true,
     },
-    orderedBy: {
-        type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'User'
-    }
-}, { _id: true });
+    selectedSize: {
+        type: String,
+        trim: true,
+    },
+}, { _id: false });
+// Main Cart Schema
 const CartSchema = new mongoose_1.Schema({
     user: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: 'User',
-        unique: true,
-        sparse: true,
-    },
-    users: [{
-            type: mongoose_1.Schema.Types.ObjectId,
-            ref: 'User'
-        }],
-    tableIdentifier: {
-        type: String,
-        unique: true,
-        sparse: true,
+        required: true,
+        unique: true, // One cart per user
     },
     items: [CartItemSchema],
-    totalAmount: {
+    totalItems: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
     },
-    appliedCouponCode: {
-        type: String,
-        default: null
-    },
-    discountAmount: {
+    totalPrice: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
+}, {
+    timestamps: true,
+    toJSON: {
+        transform: function (doc, ret) {
+            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata'
+            });
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata'
+            });
+            return ret;
+        }
     }
-}, { timestamps: true });
+});
+// Indexes for better performance
+CartSchema.index({ user: 1 });
+CartSchema.index({ user: 1, isDeleted: 1 });
+CartSchema.index({ createdAt: -1 });
+// Virtual for item count
+CartSchema.virtual('itemCount').get(function () {
+    return this.items.length;
+});
+// Pre-save middleware to calculate totals
+CartSchema.pre('save', function (next) {
+    if (this.items && this.items.length > 0) {
+        this.totalItems = this.items.reduce((total, item) => total + item.quantity, 0);
+        this.totalPrice = this.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+    }
+    else {
+        this.totalItems = 0;
+        this.totalPrice = 0;
+    }
+    next();
+});
+// Static method to find user's cart
+CartSchema.statics.findUserCart = function (userId) {
+    return this.findOne({ user: userId, isDeleted: false })
+        .populate('items.product', 'name price images thumbnail stock colors sizes')
+        .populate('user', 'name email');
+};
+// Instance method to add item to cart
+CartSchema.methods.addItem = function (productId, quantity, price, selectedColor, selectedSize) {
+    const existingItemIndex = this.items.findIndex((item) => item.product.toString() === productId &&
+        item.selectedColor === selectedColor &&
+        item.selectedSize === selectedSize);
+    if (existingItemIndex > -1) {
+        // Update existing item quantity
+        this.items[existingItemIndex].quantity += quantity;
+    }
+    else {
+        // Add new item
+        this.items.push({
+            product: productId,
+            quantity,
+            price,
+            selectedColor,
+            selectedSize,
+        });
+    }
+    return this.save();
+};
+// Instance method to update item quantity
+CartSchema.methods.updateItem = function (productId, quantity, selectedColor, selectedSize) {
+    const itemIndex = this.items.findIndex((item) => item.product.toString() === productId &&
+        item.selectedColor === selectedColor &&
+        item.selectedSize === selectedSize);
+    if (itemIndex > -1) {
+        if (quantity <= 0) {
+            this.items.splice(itemIndex, 1);
+        }
+        else {
+            this.items[itemIndex].quantity = quantity;
+        }
+        return this.save();
+    }
+    throw new Error('Item not found in cart');
+};
+// Instance method to remove item from cart
+CartSchema.methods.removeItem = function (productId, selectedColor, selectedSize) {
+    this.items = this.items.filter((item) => !(item.product.toString() === productId &&
+        item.selectedColor === selectedColor &&
+        item.selectedSize === selectedSize));
+    return this.save();
+};
+// Instance method to clear cart
+CartSchema.methods.clearCart = function () {
+    this.items = [];
+    return this.save();
+};
 exports.Cart = mongoose_1.default.model('Cart', CartSchema);

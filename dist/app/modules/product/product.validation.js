@@ -1,30 +1,133 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.productUpdateValidation = exports.productValidation = void 0;
+exports.ProductValidation = void 0;
 const zod_1 = require("zod");
-const sizeSchema = zod_1.z.object({
-    name: zod_1.z.string().min(1, 'Size name is required'),
-    price: zod_1.z.number().min(0, 'Price must be a positive number')
+const createProductValidation = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z.string({
+            required_error: 'Product name is required',
+        }).min(1, 'Product name cannot be empty').max(200, 'Product name too long'),
+        description: zod_1.z.string({
+            required_error: 'Product description is required',
+        }).min(10, 'Description must be at least 10 characters'),
+        shortDescription: zod_1.z.string().max(500, 'Short description too long').optional(),
+        price: zod_1.z.number({
+            required_error: 'Price is required',
+        }).min(0, 'Price must be positive'),
+        originalPrice: zod_1.z.number().min(0, 'Original price must be positive').optional(),
+        discount: zod_1.z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100%').optional(),
+        discountType: zod_1.z.enum(['percentage', 'fixed']).optional(),
+        sku: zod_1.z.string({
+            required_error: 'SKU is required',
+        }).min(1, 'SKU cannot be empty'),
+        category: zod_1.z.string({
+            required_error: 'Category is required',
+        }).regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID'),
+        subcategory: zod_1.z.string().optional(),
+        brand: zod_1.z.string().optional(),
+        images: zod_1.z.array(zod_1.z.string().url('Invalid image URL')).min(1, 'At least one image is required'),
+        thumbnail: zod_1.z.string({
+            required_error: 'Thumbnail is required',
+        }).url('Invalid thumbnail URL'),
+        stock: zod_1.z.number({
+            required_error: 'Stock quantity is required',
+        }).min(0, 'Stock cannot be negative'),
+        minStock: zod_1.z.number().min(0, 'Minimum stock cannot be negative').optional(),
+        weight: zod_1.z.number().min(0, 'Weight cannot be negative').optional(),
+        dimensions: zod_1.z.object({
+            length: zod_1.z.number().min(0).optional(),
+            width: zod_1.z.number().min(0).optional(),
+            height: zod_1.z.number().min(0).optional(),
+        }).optional(),
+        colors: zod_1.z.array(zod_1.z.string()).optional(),
+        sizes: zod_1.z.array(zod_1.z.string()).optional(),
+        tags: zod_1.z.array(zod_1.z.string()).optional(),
+        features: zod_1.z.array(zod_1.z.string()).optional(),
+        specifications: zod_1.z.record(zod_1.z.string()).optional(),
+        status: zod_1.z.enum(['active', 'inactive', 'out_of_stock', 'discontinued']).optional(),
+        isFeatured: zod_1.z.boolean().optional(),
+        isTrending: zod_1.z.boolean().optional(),
+        isNewArrival: zod_1.z.boolean().optional(),
+        seoTitle: zod_1.z.string().max(60, 'SEO title too long').optional(),
+        seoDescription: zod_1.z.string().max(160, 'SEO description too long').optional(),
+        seoKeywords: zod_1.z.array(zod_1.z.string()).optional(),
+        vendor: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid vendor ID').optional(),
+        shippingInfo: zod_1.z.object({
+            weight: zod_1.z.number().min(0).optional(),
+            freeShipping: zod_1.z.boolean().optional(),
+            shippingCost: zod_1.z.number().min(0).optional(),
+            estimatedDelivery: zod_1.z.string().optional(),
+        }).optional(),
+    }),
 });
-const addonSchema = zod_1.z.object({
-    name: zod_1.z.string().min(1, 'Addon name is required'),
-    key: zod_1.z.string().min(1, 'Addon key is required'),
-    price: zod_1.z.number().min(0, 'Price must be a positive number'),
-    image: zod_1.z.string().min(1, 'Addon image is required')
+const updateProductValidation = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z.string().min(1, 'Product name cannot be empty').max(200, 'Product name too long').optional(),
+        description: zod_1.z.string().min(10, 'Description must be at least 10 characters').optional(),
+        shortDescription: zod_1.z.string().max(500, 'Short description too long').optional(),
+        price: zod_1.z.number().min(0, 'Price must be positive').optional(),
+        originalPrice: zod_1.z.number().min(0, 'Original price must be positive').optional(),
+        discount: zod_1.z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100%').optional(),
+        discountType: zod_1.z.enum(['percentage', 'fixed']).optional(),
+        sku: zod_1.z.string().min(1, 'SKU cannot be empty').optional(),
+        category: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID').optional(),
+        subcategory: zod_1.z.string().optional(),
+        brand: zod_1.z.string().optional(),
+        images: zod_1.z.array(zod_1.z.string().url('Invalid image URL')).min(1, 'At least one image is required').optional(),
+        thumbnail: zod_1.z.string().url('Invalid thumbnail URL').optional(),
+        stock: zod_1.z.number().min(0, 'Stock cannot be negative').optional(),
+        minStock: zod_1.z.number().min(0, 'Minimum stock cannot be negative').optional(),
+        weight: zod_1.z.number().min(0, 'Weight cannot be negative').optional(),
+        dimensions: zod_1.z.object({
+            length: zod_1.z.number().min(0).optional(),
+            width: zod_1.z.number().min(0).optional(),
+            height: zod_1.z.number().min(0).optional(),
+        }).optional(),
+        colors: zod_1.z.array(zod_1.z.string()).optional(),
+        sizes: zod_1.z.array(zod_1.z.string()).optional(),
+        tags: zod_1.z.array(zod_1.z.string()).optional(),
+        features: zod_1.z.array(zod_1.z.string()).optional(),
+        specifications: zod_1.z.record(zod_1.z.string()).optional(),
+        status: zod_1.z.enum(['active', 'inactive', 'out_of_stock', 'discontinued']).optional(),
+        isFeatured: zod_1.z.boolean().optional(),
+        isTrending: zod_1.z.boolean().optional(),
+        isNewArrival: zod_1.z.boolean().optional(),
+        seoTitle: zod_1.z.string().max(60, 'SEO title too long').optional(),
+        seoDescription: zod_1.z.string().max(160, 'SEO description too long').optional(),
+        seoKeywords: zod_1.z.array(zod_1.z.string()).optional(),
+        vendor: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid vendor ID').optional(),
+        shippingInfo: zod_1.z.object({
+            weight: zod_1.z.number().min(0).optional(),
+            freeShipping: zod_1.z.boolean().optional(),
+            shippingCost: zod_1.z.number().min(0).optional(),
+            estimatedDelivery: zod_1.z.string().optional(),
+        }).optional(),
+    }),
 });
-exports.productValidation = zod_1.z.object({
-    name: zod_1.z.string().min(1, 'Product name is required'),
-    description: zod_1.z.string().min(1, 'Description is required'),
-    image: zod_1.z.string().min(1, 'Image is required'),
-    category: zod_1.z.string().min(1, 'Category is required'),
-    sizes: zod_1.z.array(sizeSchema).min(1, 'At least one size is required'),
-    addons: zod_1.z.array(addonSchema).optional()
+const getProductsValidation = zod_1.z.object({
+    query: zod_1.z.object({
+        page: zod_1.z.string().regex(/^\d+$/, 'Page must be a number').optional(),
+        limit: zod_1.z.string().regex(/^\d+$/, 'Limit must be a number').optional(),
+        sort: zod_1.z.string().optional(),
+        order: zod_1.z.enum(['asc', 'desc']).optional(),
+        category: zod_1.z.string().optional(),
+        subcategory: zod_1.z.string().optional(),
+        brand: zod_1.z.string().optional(),
+        minPrice: zod_1.z.string().regex(/^\d+(\.\d+)?$/, 'Invalid minimum price').optional(),
+        maxPrice: zod_1.z.string().regex(/^\d+(\.\d+)?$/, 'Invalid maximum price').optional(),
+        inStock: zod_1.z.string().regex(/^(true|false)$/, 'Invalid stock filter').optional(),
+        status: zod_1.z.enum(['active', 'inactive', 'out_of_stock', 'discontinued']).optional(),
+        isFeatured: zod_1.z.string().regex(/^(true|false)$/, 'Invalid featured filter').optional(),
+        isTrending: zod_1.z.string().regex(/^(true|false)$/, 'Invalid trending filter').optional(),
+        isNewArrival: zod_1.z.string().regex(/^(true|false)$/, 'Invalid new arrival filter').optional(),
+        colors: zod_1.z.string().optional(),
+        sizes: zod_1.z.string().optional(),
+        rating: zod_1.z.string().regex(/^[1-5]$/, 'Rating must be between 1-5').optional(),
+        search: zod_1.z.string().optional(),
+    }),
 });
-exports.productUpdateValidation = zod_1.z.object({
-    name: zod_1.z.string().min(1, 'Product name is required').optional(),
-    description: zod_1.z.string().min(1, 'Description is required').optional(),
-    image: zod_1.z.string().min(1, 'Image is required').optional(),
-    category: zod_1.z.string().min(1, 'Category is required').optional(),
-    sizes: zod_1.z.array(sizeSchema).min(1, 'At least one size is required').optional(),
-    addons: zod_1.z.array(addonSchema).optional()
-});
+exports.ProductValidation = {
+    createProductValidation,
+    updateProductValidation,
+    getProductsValidation,
+};
