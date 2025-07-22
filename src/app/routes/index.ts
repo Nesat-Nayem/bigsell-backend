@@ -11,6 +11,7 @@ import { helpSupportRouter } from "../modules/help-support/help-support.routes";
 import { blogRouter } from "../modules/blog/blog.routes";
 import { uploadRouter } from "../modules/upload/upload.routes";
 import { productRouter } from "../modules/product/product.routes";
+import { cartRouter } from "../modules/cart/cart.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -73,6 +74,10 @@ const moduleRoutes = [
   {
     path: "/products",
     route: productRouter,
+  },
+  {
+    path: "/cart",
+    route: cartRouter,
   },
 ];
 
