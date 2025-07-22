@@ -8,7 +8,7 @@ export const createPaymentValidation = z.object({
     currency: z.string().optional().default('INR'),
     method: z.enum(['card', 'upi', 'netbanking', 'wallet', 'cash_on_delivery']),
     description: z.string().max(500, 'Description too long').optional(),
-    notes: z.record(z.any()).optional(),
+    notes: z.record(z.string(), z.any()).optional(),
     customerEmail: z.string().email('Invalid email format').optional(),
     customerPhone: z.string().min(10, 'Phone number must be at least 10 digits').max(15, 'Phone number too long').optional(),
   }),
@@ -26,8 +26,8 @@ export const verifyPaymentValidation = z.object({
 // Get Payments Validation
 export const getPaymentsValidation = z.object({
   query: z.object({
-    page: z.string().transform(Number).pipe(z.number().int().min(1)).optional().default('1'),
-    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional().default('10'),
+    page: z.string().transform(Number).pipe(z.number().int().min(1)).optional().default(1),
+    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional().default(10),
     status: z.enum(['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded']).optional(),
     method: z.enum(['card', 'upi', 'netbanking', 'wallet', 'cash_on_delivery']).optional(),
     orderId: z.string().optional(),
@@ -52,7 +52,7 @@ export const refundPaymentValidation = z.object({
   body: z.object({
     amount: z.number().min(1, 'Refund amount must be greater than 0').optional(),
     reason: z.string().min(1, 'Refund reason is required').max(500, 'Reason too long'),
-    notes: z.record(z.any()).optional(),
+    notes: z.record(z.string(), z.any()).optional(),
   }),
 });
 
@@ -98,7 +98,7 @@ export const webhookValidation = z.object({
           vpa: z.string().optional(),
           email: z.string(),
           contact: z.string(),
-          notes: z.record(z.any()),
+          notes: z.record(z.string(), z.any()),
           fee: z.number().optional(),
           tax: z.number().optional(),
           error_code: z.string().optional(),

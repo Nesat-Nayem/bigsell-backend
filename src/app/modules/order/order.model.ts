@@ -271,14 +271,14 @@ const OrderSchema: Schema = new Schema(
     timestamps: true,
     toJSON: {
       transform: function(doc, ret) {
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { 
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { 
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
-        if (ret.orderDate) {
-          ret.orderDate = new Date(ret.orderDate).toLocaleString('en-IN', { 
+        if ((ret as any).orderDate) {
+          (ret as any).orderDate = new Date((ret as any).orderDate).toLocaleString('en-IN', { 
             timeZone: 'Asia/Kolkata' 
           });
         }
@@ -307,7 +307,7 @@ OrderSchema.pre('save', async function(next) {
   
   // Add status to history if status changed
   if (this.isModified('status') && !this.isNew) {
-    this.statusHistory.push({
+    (this as any).statusHistory.push({
       status: this.status,
       timestamp: new Date(),
       note: `Status changed to ${this.status}`,

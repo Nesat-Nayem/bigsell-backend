@@ -51,8 +51,8 @@ export const updateOrderStatusValidation = z.object({
 // Get Orders Validation
 export const getOrdersValidation = z.object({
   query: z.object({
-    page: z.string().transform(Number).pipe(z.number().int().min(1)).optional().default('1'),
-    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional().default('10'),
+    page: z.string().transform(Number).pipe(z.number().int().min(1)).optional().default(1),
+    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional().default(10),
     status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']).optional(),
     paymentStatus: z.enum(['pending', 'paid', 'failed', 'refunded']).optional(),
     dateFrom: z.string().optional(),

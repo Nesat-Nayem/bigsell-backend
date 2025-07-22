@@ -12,408 +12,553 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyGenericPayment = exports.createGenericPaymentOrder = exports.verifyPackagePayment = exports.createPackagePaymentOrder = exports.verifyRazorpayPayment = exports.createRazorpayOrder = void 0;
+exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.createPayment = void 0;
+const payment_model_1 = require("./payment.model");
 const order_model_1 = require("../order/order.model");
-const cart_model_1 = require("../cart/cart.model");
-const hotel_model_1 = require("../hotel/hotel.model");
-const razorpay_1 = __importDefault(require("razorpay"));
-const qrcode_model_1 = require("../qrcode/qrcode.model");
+const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
-// Initialize Razorpay
-const razorpay = new razorpay_1.default({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
+const crypto_1 = __importDefault(require("crypto"));
+// Razorpay configuration (you'll need to install razorpay package)
+// npm install razorpay @types/razorpay
+const Razorpay = require('razorpay');
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'your_razorpay_key_id',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'your_razorpay_key_secret',
 });
-const createRazorpayOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+// Create payment order (Razorpay order creation)
+const createPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
     try {
-        // Use the same cart finding logic as the order controller
-        const hotelId = req.body.hotelId || req.query.hotelId;
-        const tableNumber = req.body.tableNumber || req.query.tableNumber;
-        const orderAmount = req.body.orderAmount; // Amount for selected items from frontend
-        const userId = req.user._id;
-        console.log("PAYMENT - createRazorpayOrder - hotelId:", hotelId, "tableNumber:", tableNumber, "userId:", userId);
-        console.log("PAYMENT - orderAmount from frontend:", orderAmount);
-        // If orderAmount is provided, use it directly (for selected items)
-        if (orderAmount && orderAmount > 0) {
-            console.log("PAYMENT - Using provided orderAmount:", orderAmount);
-            // Validate orderAmount
-            if (typeof orderAmount !== 'number' || orderAmount <= 0) {
-                res.status(400).json({
-                    success: false,
-                    statusCode: 400,
-                    message: "Invalid order amount provided"
-                });
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { orderId, amount, currency = 'INR', method, description, notes, customerEmail, customerPhone } = req.body;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        // Validate order exists and belongs to user
+        if (!mongoose_1.default.Types.ObjectId.isValid(orderId)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
+        }
+        const order = yield order_model_1.Order.findOne({
+            _id: orderId,
+            user: userId,
+            isDeleted: false
+        });
+        if (!order) {
+            next(new appError_1.appError('Order not found', 404));
+            return;
+        }
+        // Check if payment already exists for this order
+        const existingPayment = yield payment_model_1.Payment.findOne({
+            orderId,
+            status: { $in: ['pending', 'processing', 'completed'] },
+            isDeleted: false
+        });
+        if (existingPayment) {
+            next(new appError_1.appError('Payment already exists for this order', 400));
+            return;
+        }
+        // Get user details from request or order
+        const email = customerEmail || ((_b = req.user) === null || _b === void 0 ? void 0 : _b.email) || order.shippingAddress.email;
+        const phone = customerPhone || ((_c = req.user) === null || _c === void 0 ? void 0 : _c.phone) || order.shippingAddress.phone;
+        let razorpayOrder = null;
+        let razorpayOrderId = null;
+        // Create Razorpay order for online payments
+        if (method !== 'cash_on_delivery') {
+            try {
+                const razorpayOptions = {
+                    amount: amount * 100, // Razorpay expects amount in paisa
+                    currency: currency.toUpperCase(),
+                    receipt: `order_${orderId}_${Date.now()}`,
+                    notes: Object.assign({ orderId: orderId, userId: userId.toString() }, notes),
+                };
+                razorpayOrder = yield razorpay.orders.create(razorpayOptions);
+                razorpayOrderId = razorpayOrder.id;
+            }
+            catch (error) {
+                console.error('Razorpay order creation failed:', error);
+                next(new appError_1.appError('Failed to create payment order', 500));
                 return;
             }
-            // Create Razorpay order with the provided amount
-            const razorpayOrder = yield razorpay.orders.create({
-                amount: Math.round(orderAmount * 100), // in paise
-                currency: 'INR',
-                receipt: `receipt_${Date.now()}`,
-                notes: {
-                    userId: req.user._id.toString(),
-                    hotelId: hotelId || 'unknown',
-                    tableNumber: tableNumber || 'personal',
-                    type: 'selected_items'
-                }
-            });
+        }
+        // Create payment record
+        const payment = new payment_model_1.Payment({
+            orderId,
+            userId,
+            amount: amount * 100, // Store in paisa
+            currency: currency.toUpperCase(),
+            method,
+            status: method === 'cash_on_delivery' ? 'pending' : 'pending',
+            razorpayOrderId,
+            description: description || `Payment for order ${order.orderNumber}`,
+            notes: notes || {},
+            customerEmail: email,
+            customerPhone: phone,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+        });
+        yield payment.save();
+        // Update order payment status if COD
+        if (method === 'cash_on_delivery') {
+            order.paymentStatus = 'pending';
+            order.paymentInfo.method = 'cash_on_delivery';
+            order.paymentInfo.status = 'pending';
+            yield order.save();
+        }
+        const response = {
+            paymentId: payment.paymentId,
+            orderId: payment.orderId,
+            amount: payment.amount,
+            currency: payment.currency,
+            method: payment.method,
+            status: payment.status,
+        };
+        // Add Razorpay details for online payments
+        if (razorpayOrder) {
+            response.razorpayOrderId = razorpayOrder.id;
+            response.razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+            response.razorpayOrder = razorpayOrder;
+        }
+        res.status(201).json({
+            success: true,
+            statusCode: 201,
+            message: 'Payment initiated successfully',
+            data: response,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.createPayment = createPayment;
+// Verify Razorpay payment
+const verifyPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        // Find payment by Razorpay order ID
+        const payment = yield payment_model_1.Payment.findOne({
+            razorpayOrderId: razorpay_order_id,
+            isDeleted: false
+        }).populate('orderId');
+        if (!payment) {
+            next(new appError_1.appError('Payment not found', 404));
+            return;
+        }
+        // Verify signature
+        const expectedSignature = crypto_1.default
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest('hex');
+        if (expectedSignature !== razorpay_signature) {
+            // Mark payment as failed
+            yield payment.markFailed('Invalid signature', 'SIGNATURE_MISMATCH', 'Payment signature verification failed');
+            next(new appError_1.appError('Payment verification failed', 400));
+            return;
+        }
+        // Fetch payment details from Razorpay
+        try {
+            const razorpayPayment = yield razorpay.payments.fetch(razorpay_payment_id);
+            // Update payment record
+            payment.razorpayPaymentId = razorpay_payment_id;
+            payment.razorpaySignature = razorpay_signature;
+            payment.status = razorpayPayment.status === 'captured' ? 'completed' : 'processing';
+            payment.gatewayResponse = razorpayPayment;
+            if (payment.status === 'completed') {
+                payment.completedAt = new Date();
+            }
+            yield payment.save();
+            // Update order payment status
+            const order = payment.orderId;
+            if (order) {
+                order.paymentStatus = payment.status === 'completed' ? 'paid' : 'pending';
+                order.paymentInfo.status = payment.status === 'completed' ? 'completed' : 'pending';
+                order.paymentInfo.transactionId = razorpay_payment_id;
+                order.paymentInfo.paymentDate = payment.completedAt;
+                yield order.save();
+            }
             res.status(200).json({
                 success: true,
                 statusCode: 200,
-                message: "Razorpay order created for selected items",
+                message: 'Payment verified successfully',
                 data: {
-                    orderId: razorpayOrder.id,
-                    amount: razorpayOrder.amount,
-                    currency: razorpayOrder.currency
-                }
+                    paymentId: payment.paymentId,
+                    status: payment.status,
+                    razorpayPaymentId: razorpay_payment_id,
+                    amount: payment.amount,
+                },
             });
             return;
         }
-        // Fallback: calculate from cart (existing logic for backward compatibility)
-        let cart;
-        if (hotelId && tableNumber) {
-            // Look for shared table cart
-            const tableIdentifier = `${hotelId}_${tableNumber}`;
-            console.log("PAYMENT - Looking for cart with tableIdentifier:", tableIdentifier);
-            cart = yield cart_model_1.Cart.findOne({ tableIdentifier });
-            console.log("PAYMENT - Found shared cart:", cart ? "Yes" : "No");
-            if (!cart) {
-                // Create a new shared cart if none exists
-                cart = new cart_model_1.Cart({
-                    tableIdentifier,
-                    users: [userId],
-                    items: [],
-                    totalAmount: 0,
-                    discountAmount: 0,
-                });
-                yield cart.save();
-            }
-            else if (!((_a = cart.users) === null || _a === void 0 ? void 0 : _a.includes(userId))) {
-                // Add user to existing shared cart
-                if (!cart.users)
-                    cart.users = [];
-                cart.users.push(userId);
-                yield cart.save();
-            }
-        }
-        else {
-            // Fallback to personal cart
-            console.log("PAYMENT - No hotelId/tableNumber provided, using personal cart");
-            cart = yield cart_model_1.Cart.findOne({ user: userId });
-        }
-        if (!cart || cart.items.length === 0) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Cart is empty"
-            });
+        catch (error) {
+            console.error('Razorpay payment fetch failed:', error);
+            yield payment.markFailed('Payment fetch failed', 'FETCH_ERROR', error.message);
+            next(new appError_1.appError('Payment verification failed', 500));
             return;
         }
-        // Get hotel info for taxes and service charge
-        const cartHotelId = (_b = cart.items[0]) === null || _b === void 0 ? void 0 : _b.hotelId;
-        if (!cartHotelId) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Hotel information not found in cart."
-            });
-            return;
-        }
-        const hotel = yield hotel_model_1.Hotel.findById(cartHotelId);
-        if (!hotel) {
-            res.status(404).json({
-                success: false,
-                statusCode: 404,
-                message: "Hotel not found."
-            });
-            return;
-        }
-        // Calculate the final amount including taxes and charges (fallback method)
-        const subtotal = cart.totalAmount;
-        const cgst = subtotal * ((hotel.cgstRate || 0) / 100);
-        const sgst = subtotal * ((hotel.sgstRate || 0) / 100);
-        const serviceCharge = subtotal * ((hotel.serviceCharge || 0) / 100);
-        const totalAmount = subtotal + cgst + sgst + serviceCharge;
-        const finalAmount = totalAmount - (cart.discountAmount || 0);
-        console.log("PAYMENT - Using cart-calculated amount:", finalAmount);
-        // Create Razorpay order
-        const razorpayOrder = yield razorpay.orders.create({
-            amount: Math.round(finalAmount * 100), // in paise
-            currency: 'INR',
-            receipt: `receipt_${Date.now()}`,
-            notes: {
-                userId: req.user._id.toString(),
-                hotelId: cartHotelId.toString(),
-                tableNumber: tableNumber || 'personal',
-                type: 'full_cart'
-            }
-        });
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Razorpay order created",
-            data: {
-                orderId: razorpayOrder.id,
-                amount: razorpayOrder.amount,
-                currency: razorpayOrder.currency
-            }
-        });
     }
     catch (error) {
         next(error);
     }
 });
-exports.createRazorpayOrder = createRazorpayOrder;
-const verifyRazorpayPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.verifyPayment = verifyPayment;
+// Get user payments
+const getUserPayments = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId // Expecting our internal order ID from the frontend
-         } = req.body;
-        if (!orderId) {
-            next(new appError_1.appError("Order ID is required for verification", 400));
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { page = 1, limit = 10, status, method, orderId, dateFrom, dateTo, sort = '-initiatedAt' } = req.query;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
             return;
         }
-        // Verify the payment signature
-        const crypto = require('crypto');
-        const generatedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-            .digest('hex');
-        const isAuthentic = generatedSignature === razorpaySignature;
-        if (!isAuthentic) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Payment verification failed: Invalid signature"
-            });
-            return;
+        const filter = { userId, isDeleted: false };
+        if (status)
+            filter.status = status;
+        if (method)
+            filter.method = method;
+        if (orderId)
+            filter.orderId = orderId;
+        if (dateFrom || dateTo) {
+            filter.initiatedAt = {};
+            if (dateFrom)
+                filter.initiatedAt.$gte = new Date(dateFrom);
+            if (dateTo)
+                filter.initiatedAt.$lte = new Date(dateTo);
         }
-        // Find the pending order
-        const order = yield order_model_1.Order.findById(orderId);
-        if (!order) {
-            res.status(404).json({
-                success: false,
-                statusCode: 404,
-                message: "Order not found"
-            });
-            return;
-        }
-        // Update the order with payment details
-        order.paymentStatus = 'paid';
-        order.status = 'processing';
-        order.paymentId = razorpayPaymentId;
-        // Add payment details if not already there from createOrder
-        order.paymentDetails = {
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySignature,
-        };
-        yield order.save();
-        // After successful payment, mark the table as 'booked'
-        if (order.tableNumber) {
-            const hotelId = (_a = order.items[0]) === null || _a === void 0 ? void 0 : _a.hotelId;
-            if (hotelId) {
-                yield qrcode_model_1.QRCode.findOneAndUpdate({ hotelId: hotelId, tableNumber: order.tableNumber, isDeleted: false }, { status: 'booked' }, { new: true });
-            }
-        }
-        // The cart has already been cleared by `createOrder`.
+        const skip = (Number(page) - 1) * Number(limit);
+        const [payments, total] = yield Promise.all([
+            payment_model_1.Payment.find(filter)
+                .populate('orderId', 'orderNumber totalAmount status')
+                .populate('userId', 'name email phone')
+                .sort(sort)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            payment_model_1.Payment.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Payment verified and order updated",
-            data: order
+            message: 'Payments retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: payments,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.verifyRazorpayPayment = verifyRazorpayPayment;
-const createPackagePaymentOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getUserPayments = getUserPayments;
+// Get all payments (admin only)
+const getAllPayments = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { orderAmount, packageName } = req.body;
-        if (!orderAmount) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Order amount is required"
-            });
-            return;
+        const { page = 1, limit = 10, status, method, orderId, dateFrom, dateTo, sort = '-initiatedAt' } = req.query;
+        const filter = { isDeleted: false };
+        if (status)
+            filter.status = status;
+        if (method)
+            filter.method = method;
+        if (orderId)
+            filter.orderId = orderId;
+        if (dateFrom || dateTo) {
+            filter.initiatedAt = {};
+            if (dateFrom)
+                filter.initiatedAt.$gte = new Date(dateFrom);
+            if (dateTo)
+                filter.initiatedAt.$lte = new Date(dateTo);
         }
-        // Create Razorpay order without checking cart
-        const razorpayOrder = yield razorpay.orders.create({
-            amount: Math.round(orderAmount * 100), // in paise
-            currency: 'INR',
-            receipt: `pkg_${Date.now()}`,
-            notes: {
-                userId: req.user._id.toString(),
-                packageName: packageName || 'Package Purchase'
-            }
-        });
+        const skip = (Number(page) - 1) * Number(limit);
+        const [payments, total] = yield Promise.all([
+            payment_model_1.Payment.find(filter)
+                .populate('orderId', 'orderNumber totalAmount status')
+                .populate('userId', 'name email phone')
+                .sort(sort)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            payment_model_1.Payment.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Razorpay order created for package",
-            data: {
-                orderId: razorpayOrder.id,
-                amount: razorpayOrder.amount,
-                currency: razorpayOrder.currency
-            }
+            message: 'Payments retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: payments,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.createPackagePaymentOrder = createPackagePaymentOrder;
-// NEW METHOD: Verify package payment
-const verifyPackagePayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAllPayments = getAllPayments;
+// Get single payment by ID
+const getPaymentById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
-        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, contractData // This will contain your contract form data
-         } = req.body;
-        // Verify the payment signature (same as in verifyRazorpayPayment)
-        const crypto = require('crypto');
-        const generatedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-            .digest('hex');
-        const isAuthentic = generatedSignature === razorpaySignature;
-        if (!isAuthentic) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Payment verification failed"
-            });
+        const { id } = req.params;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid payment ID', 400));
             return;
         }
-        // Payment is valid! You can create a contract record here if needed
-        // (This is just a response - you'll handle contract creation from the frontend)
+        const filter = { _id: id, isDeleted: false };
+        // Non-admin users can only view their own payments
+        if (userRole !== 'admin') {
+            filter.userId = userId;
+        }
+        const payment = yield payment_model_1.Payment.findOne(filter)
+            .populate('orderId', 'orderNumber totalAmount status')
+            .populate('userId', 'name email phone')
+            .lean();
+        if (!payment) {
+            next(new appError_1.appError('Payment not found', 404));
+            return;
+        }
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Package payment verified successfully",
-            data: {
-                paymentId: razorpayPaymentId,
-                orderId: razorpayOrderId
-            }
+            message: 'Payment retrieved successfully',
+            data: payment,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.verifyPackagePayment = verifyPackagePayment;
-// Generic payment order creation
-const createGenericPaymentOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getPaymentById = getPaymentById;
+// Refund payment (admin only)
+const refundPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { amount, currency = 'INR', paymentType, metadata = {} } = req.body;
-        if (!amount || amount <= 0) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Valid amount is required"
-            });
+        const { id } = req.params;
+        const { amount, reason, notes } = req.body;
+        const adminId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid payment ID', 400));
             return;
         }
-        // Create Razorpay order
-        const razorpayOrder = yield razorpay.orders.create({
-            amount: Math.round(Number(amount) * 100), // in paise
-            currency: currency,
-            receipt: `${paymentType || 'generic'}_${Date.now()}`,
-            notes: Object.assign({ userId: req.user._id.toString(), paymentType: paymentType || 'generic' }, metadata)
-        });
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Payment order created successfully",
-            data: {
-                orderId: razorpayOrder.id,
-                amount: Number(razorpayOrder.amount) / 100, // Convert back to main currency unit
-                currency: razorpayOrder.currency,
-                paymentType: paymentType || 'generic'
-            }
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.createGenericPaymentOrder = createGenericPaymentOrder;
-// Generic payment verification
-const verifyGenericPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentType, callbackData = {} } = req.body;
-        // Verify the payment signature
-        const crypto = require('crypto');
-        const generatedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-            .digest('hex');
-        const isAuthentic = generatedSignature === razorpaySignature;
-        if (!isAuthentic) {
-            res.status(400).json({
-                success: false,
-                statusCode: 400,
-                message: "Payment verification failed"
-            });
+        const payment = yield payment_model_1.Payment.findOne({ _id: id, isDeleted: false });
+        if (!payment) {
+            next(new appError_1.appError('Payment not found', 404));
             return;
         }
-        // Payment is verified, now handle different payment types
-        let responseData = {
-            paymentId: razorpayPaymentId,
-            orderId: razorpayOrderId
-        };
-        // Handle different payment types
-        switch (paymentType) {
-            case 'cart':
-                // Process cart payment (similar to verifyRazorpayPayment)
-                const cart = yield cart_model_1.Cart.findOne({ user: req.user._id });
-                if (!cart || cart.items.length === 0) {
-                    res.status(400).json({
-                        success: false,
-                        statusCode: 400,
-                        message: "Cart is empty"
-                    });
-                    return;
-                }
-                const order = new order_model_1.Order({
-                    user: req.user._id,
-                    items: cart.items,
-                    totalAmount: cart.totalAmount,
-                    address: callbackData.address,
-                    paymentMethod: 'razorpay',
-                    paymentStatus: 'paid',
-                    paymentId: razorpayPaymentId
+        if (payment.status !== 'completed') {
+            next(new appError_1.appError('Only completed payments can be refunded', 400));
+            return;
+        }
+        const refundAmount = amount || (payment.amount - payment.amountRefunded);
+        if (refundAmount <= 0 || refundAmount > (payment.amount - payment.amountRefunded)) {
+            next(new appError_1.appError('Invalid refund amount', 400));
+            return;
+        }
+        try {
+            // Create refund in Razorpay
+            let razorpayRefund = null;
+            if (payment.razorpayPaymentId) {
+                razorpayRefund = yield razorpay.payments.refund(payment.razorpayPaymentId, {
+                    amount: refundAmount,
+                    notes: notes || {},
                 });
-                yield order.save();
-                // Clear the cart
-                cart.items = [];
-                cart.totalAmount = 0;
-                yield cart.save();
-                responseData.orderDetails = order;
-                break;
-            case 'package':
-                // Process package payment (no additional processing needed)
-                break;
-            case 'table-booking':
-                // Process table booking payment
-                // You can add specific logic for table booking here
-                break;
-            // Add more payment types as needed
-            default:
-                // Generic payment with no specific processing
-                break;
+            }
+            // Add refund to payment record
+            yield payment.addRefund({
+                refundId: (razorpayRefund === null || razorpayRefund === void 0 ? void 0 : razorpayRefund.id) || `REF-${Date.now()}`,
+                amount: refundAmount,
+                reason,
+                status: razorpayRefund ? 'processed' : 'pending',
+                processedAt: razorpayRefund ? new Date() : undefined,
+                refundedBy: adminId,
+            });
+            // Get updated payment
+            const updatedPayment = yield payment_model_1.Payment.findById(id)
+                .populate('orderId', 'orderNumber totalAmount status')
+                .populate('userId', 'name email phone');
+            res.status(200).json({
+                success: true,
+                statusCode: 200,
+                message: 'Refund processed successfully',
+                data: updatedPayment,
+            });
+            return;
         }
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: `Payment for ${paymentType || 'transaction'} verified successfully`,
-            data: responseData
-        });
+        catch (error) {
+            console.error('Refund processing failed:', error);
+            next(new appError_1.appError('Refund processing failed', 500));
+            return;
+        }
     }
     catch (error) {
         next(error);
     }
 });
-exports.verifyGenericPayment = verifyGenericPayment;
+exports.refundPayment = refundPayment;
+// Webhook handler for Razorpay
+const handleWebhook = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const webhookSignature = req.get('X-Razorpay-Signature');
+        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        if (!webhookSignature || !webhookSecret) {
+            next(new appError_1.appError('Invalid webhook request', 400));
+            return;
+        }
+        // Verify webhook signature
+        const expectedSignature = crypto_1.default
+            .createHmac('sha256', webhookSecret)
+            .update(JSON.stringify(req.body))
+            .digest('hex');
+        if (expectedSignature !== webhookSignature) {
+            next(new appError_1.appError('Invalid webhook signature', 400));
+            return;
+        }
+        const { event, payload } = req.body;
+        // Handle different webhook events
+        switch (event) {
+            case 'payment.captured':
+                yield handlePaymentCaptured(payload.payment.entity);
+                break;
+            case 'payment.failed':
+                yield handlePaymentFailed(payload.payment.entity);
+                break;
+            case 'refund.processed':
+                yield handleRefundProcessed(payload.refund.entity);
+                break;
+            default:
+                console.log(`Unhandled webhook event: ${event}`);
+        }
+        res.status(200).json({ success: true });
+        return;
+    }
+    catch (error) {
+        console.error('Webhook processing failed:', error);
+        next(error);
+    }
+});
+exports.handleWebhook = handleWebhook;
+// Helper function to handle payment captured webhook
+const handlePaymentCaptured = (paymentData) => __awaiter(void 0, void 0, void 0, function* () {
+    const payment = yield payment_model_1.Payment.findOne({
+        razorpayPaymentId: paymentData.id,
+        isDeleted: false
+    });
+    if (payment) {
+        yield payment.markCompleted(paymentData);
+        // Update order status
+        const order = yield order_model_1.Order.findById(payment.orderId);
+        if (order) {
+            order.paymentStatus = 'paid';
+            order.paymentInfo.status = 'completed';
+            order.paymentInfo.transactionId = paymentData.id;
+            order.paymentInfo.paymentDate = new Date();
+            yield order.save();
+        }
+    }
+});
+// Helper function to handle payment failed webhook
+const handlePaymentFailed = (paymentData) => __awaiter(void 0, void 0, void 0, function* () {
+    const payment = yield payment_model_1.Payment.findOne({
+        razorpayPaymentId: paymentData.id,
+        isDeleted: false
+    });
+    if (payment) {
+        yield payment.markFailed(paymentData.error_description || 'Payment failed', paymentData.error_code, paymentData.error_description);
+    }
+});
+// Helper function to handle refund processed webhook
+const handleRefundProcessed = (refundData) => __awaiter(void 0, void 0, void 0, function* () {
+    const payment = yield payment_model_1.Payment.findOne({
+        razorpayPaymentId: refundData.payment_id,
+        isDeleted: false
+    });
+    if (payment) {
+        // Update refund status in payment record
+        const refund = payment.refunds.find(r => r.refundId === refundData.id);
+        if (refund) {
+            refund.status = 'processed';
+            refund.processedAt = new Date();
+            yield payment.save();
+        }
+    }
+});
+// Get payment summary (admin only)
+const getPaymentSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const { dateFrom, dateTo, userId } = req.query;
+        const filter = { isDeleted: false };
+        if (userId)
+            filter.userId = userId;
+        if (dateFrom || dateTo) {
+            filter.initiatedAt = {};
+            if (dateFrom)
+                filter.initiatedAt.$gte = new Date(dateFrom);
+            if (dateTo)
+                filter.initiatedAt.$lte = new Date(dateTo);
+        }
+        const [totalPayments, totalAmount, successfulPayments, failedPayments, pendingPayments, totalRefunded, methodBreakdown] = yield Promise.all([
+            payment_model_1.Payment.countDocuments(filter),
+            payment_model_1.Payment.aggregate([
+                { $match: Object.assign(Object.assign({}, filter), { status: 'completed' }) },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            payment_model_1.Payment.countDocuments(Object.assign(Object.assign({}, filter), { status: 'completed' })),
+            payment_model_1.Payment.countDocuments(Object.assign(Object.assign({}, filter), { status: 'failed' })),
+            payment_model_1.Payment.countDocuments(Object.assign(Object.assign({}, filter), { status: 'pending' })),
+            payment_model_1.Payment.aggregate([
+                { $match: filter },
+                { $group: { _id: null, total: { $sum: '$amountRefunded' } } }
+            ]),
+            payment_model_1.Payment.aggregate([
+                { $match: filter },
+                {
+                    $group: {
+                        _id: '$method',
+                        count: { $sum: 1 },
+                        amount: { $sum: '$amount' }
+                    }
+                }
+            ])
+        ]);
+        const summary = {
+            totalPayments,
+            totalAmount: ((_a = totalAmount[0]) === null || _a === void 0 ? void 0 : _a.total) || 0,
+            successfulPayments,
+            failedPayments,
+            pendingPayments,
+            totalRefunded: ((_b = totalRefunded[0]) === null || _b === void 0 ? void 0 : _b.total) || 0,
+            methodBreakdown: methodBreakdown.map(item => ({
+                method: item._id,
+                count: item.count,
+                amount: item.amount,
+            })),
+        };
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Payment summary retrieved successfully',
+            data: summary,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getPaymentSummary = getPaymentSummary;

@@ -78,7 +78,7 @@ export const getWishlist = async (
       pipeline.push({
         $match: {
           $or: [
-            { 'categoryDetails._id': new mongoose.Types.ObjectId(category) },
+            { 'categoryDetails._id': new mongoose.Types.ObjectId(category as string) },
             { 'categoryDetails.name': { $regex: category, $options: 'i' } },
           ],
         },

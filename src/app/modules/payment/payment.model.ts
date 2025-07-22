@@ -210,24 +210,24 @@ const PaymentSchema: Schema = new Schema(
     timestamps: true,
     toJSON: {
       transform: function(doc, ret) {
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { 
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { 
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
-        if (ret.initiatedAt) {
-          ret.initiatedAt = new Date(ret.initiatedAt).toLocaleString('en-IN', { 
+        if ((ret as any).initiatedAt) {
+          (ret as any).initiatedAt = new Date((ret as any).initiatedAt).toLocaleString('en-IN', { 
             timeZone: 'Asia/Kolkata' 
           });
         }
-        if (ret.completedAt) {
-          ret.completedAt = new Date(ret.completedAt).toLocaleString('en-IN', { 
+        if ((ret as any).completedAt) {
+          (ret as any).completedAt = new Date((ret as any).completedAt).toLocaleString('en-IN', { 
             timeZone: 'Asia/Kolkata' 
           });
         }
-        if (ret.failedAt) {
-          ret.failedAt = new Date(ret.failedAt).toLocaleString('en-IN', { 
+        if ((ret as any).failedAt) {
+          (ret as any).failedAt = new Date((ret as any).failedAt).toLocaleString('en-IN', { 
             timeZone: 'Asia/Kolkata' 
           });
         }
@@ -274,8 +274,8 @@ PaymentSchema.pre('save', async function(next) {
   
   // Update refund status based on refunded amount
   if (this.isModified('amountRefunded')) {
-    if (this.amountRefunded > 0) {
-      if (this.amountRefunded >= this.amount) {
+    if ((this as any).amountRefunded > 0) {
+      if ((this as any).amountRefunded >= (this as any).amount) {
         this.status = 'refunded';
       } else {
         this.status = 'partially_refunded';
@@ -340,14 +340,14 @@ PaymentSchema.methods.markFailed = function(reason: string, errorCode?: string, 
 
 // Virtual for refund status
 PaymentSchema.virtual('refundStatus').get(function() {
-  if (this.amountRefunded === 0) return 'none';
-  if (this.amountRefunded >= this.amount) return 'full';
+  if ((this as any).amountRefunded === 0) return 'none';
+  if ((this as any).amountRefunded >= (this as any).amount) return 'full';
   return 'partial';
 });
 
 // Virtual for amount in rupees (from paisa)
 PaymentSchema.virtual('amountInRupees').get(function() {
-  return this.amount / 100;
+  return (this as any).amount / 100;
 });
 
 export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);

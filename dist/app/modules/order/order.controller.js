@@ -8,939 +8,486 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payForItems = exports.completeOrder = exports.recordManualPayment = exports.updateOrderItemStatus = exports.getAllOrders = exports.getDashboardStats = exports.updatePaymentStatus = exports.updateOrderStatus = exports.getOrderById = exports.getUserOrders = exports.createOrder = void 0;
+exports.getOrderSummary = exports.updatePaymentStatus = exports.returnOrder = exports.cancelOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.getUserOrders = exports.createOrder = void 0;
 const order_model_1 = require("./order.model");
+const product_model_1 = require("../product/product.model");
 const cart_model_1 = require("../cart/cart.model");
-const hotel_model_1 = require("../hotel/hotel.model");
-const qrcode_model_1 = require("../qrcode/qrcode.model");
-const order_validation_1 = require("./order.validation");
+const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
-const coupon_model_1 = require("../coupon/coupon.model");
-// Helper function to get the correct cart (personal or shared table cart)
-const getCartForRequest = (req) => __awaiter(void 0, void 0, void 0, function* () {
-    // Check body, then query for table info
-    const hotelId = req.body.hotelId || req.query.hotelId;
-    const tableNumber = req.body.tableNumber || req.query.tableNumber;
-    const userId = req.user._id;
-    console.log("ORDER - getCartForRequest - hotelId:", hotelId, "tableNumber:", tableNumber, "userId:", userId);
-    if (hotelId && tableNumber) {
-        const tableIdentifier = `${hotelId}_${tableNumber}`;
-        console.log("ORDER - Looking for cart with tableIdentifier:", tableIdentifier);
-        let cart = yield cart_model_1.Cart.findOne({ tableIdentifier });
-        console.log("ORDER - Found cart:", cart ? "Yes" : "No");
-        if (!cart) {
-            console.log("ORDER - No cart found for table");
-            return null; // For orders, we don't create a new cart if none exists
-        }
-        else {
-            // Add user to the shared cart if they aren't already in it
-            if (!cart.users) {
-                cart.users = [];
-            }
-            if (!cart.users.find(u => u.equals(userId))) {
-                cart.users.push(userId);
-                console.log("ORDER - Added user to existing cart");
-            }
-        }
-        return cart;
-    }
-    else {
-        console.log("ORDER - No hotelId/tableNumber provided, using personal cart");
-        // Fallback to personal cart for users not at a table
-        let cart = yield cart_model_1.Cart.findOne({ user: userId });
-        return cart;
-    }
-});
-// Helper function to populate menu item data
-const populateOrderItems = (order) => __awaiter(void 0, void 0, void 0, function* () {
-    const populatedItems = yield Promise.all(order.items.map((item) => __awaiter(void 0, void 0, void 0, function* () {
-        const hotel = yield hotel_model_1.Hotel.findById(item.hotelId);
-        let menuItemData = null;
-        if (hotel) {
-            for (const category of hotel.menuCategories) {
-                const menuItem = category.items.find((mi) => mi.id === item.menuItem);
-                if (menuItem) {
-                    menuItemData = {
-                        id: menuItem.id,
-                        title: menuItem.title,
-                        image: menuItem.image,
-                        description: menuItem.description,
-                        price: menuItem.price,
-                        category: category.name,
-                    };
-                    break;
-                }
-            }
-        }
-        return Object.assign(Object.assign({}, item.toObject()), { menuItemData });
-    })));
-    const populatedOrder = yield order_model_1.Order.populate(order, [
-        { path: "users", select: "name phone" },
-        { path: "items.orderedBy", select: "name phone" },
-    ]);
-    return Object.assign(Object.assign({}, populatedOrder.toObject()), { items: populatedItems });
-});
-// Create a new order from cart
+// Create new order
 const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { hotelId: reqHotelId, tableNumber, paymentMethod, paymentId, specialInstructions, selectedItemIds } = order_validation_1.createOrderValidation.parse(req.body);
-        console.log("ORDER - createOrder called with:", { reqHotelId, tableNumber, paymentMethod, selectedItemIds });
-        // Use the same cart finding logic as the cart controller
-        const cart = yield getCartForRequest(req);
-        if (!cart || cart.items.length === 0) {
-            console.log("ORDER - Cart is empty or not found");
-            next(new appError_1.appError("Cart is empty", 400));
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode } = req.body;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
             return;
         }
-        console.log("ORDER - Found cart with", cart.items.length, "items");
-        console.log("ORDER - Cart type:", cart.tableIdentifier ? "shared table cart" : "personal cart");
-        console.log("ORDER - Cart items:", cart.items.map(item => { var _a; return ({ id: (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString(), menuItem: item.menuItem, orderedBy: item.orderedBy }); }));
-        // Filter items based on selection
-        let itemsToOrder = cart.items;
-        if (selectedItemIds && selectedItemIds.length > 0) {
-            console.log("ORDER - Filtering items. Selected IDs:", selectedItemIds);
-            console.log("ORDER - Available cart item IDs:", cart.items.map(item => { var _a; return (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString(); }));
-            itemsToOrder = cart.items.filter(item => {
-                var _a;
-                const itemIdStr = (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString();
-                const isSelected = itemIdStr && selectedItemIds.includes(itemIdStr);
-                console.log(`ORDER - Item ${itemIdStr}: ${isSelected ? 'SELECTED' : 'NOT SELECTED'}`);
-                return isSelected;
-            });
-            console.log("ORDER - Filtered to", itemsToOrder.length, "selected items");
-            console.log("ORDER - Items to order:", itemsToOrder.map(item => { var _a; return ({ id: (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString(), menuItem: item.menuItem }); }));
-            if (itemsToOrder.length === 0) {
-                next(new appError_1.appError("No valid selected items found in cart", 400));
+        // Validate and process order items
+        const orderItems = [];
+        let subtotal = 0;
+        for (const item of items) {
+            if (!mongoose_1.default.Types.ObjectId.isValid(item.productId)) {
+                next(new appError_1.appError(`Invalid product ID: ${item.productId}`, 400));
                 return;
             }
-        }
-        // Calculate total for selected items only
-        const selectedSubtotal = itemsToOrder.reduce((sum, item) => sum + item.price, 0);
-        // Get hotel details
-        const hotelId = reqHotelId || cart.items[0].hotelId;
-        const hotel = yield hotel_model_1.Hotel.findById(hotelId);
-        if (!hotel) {
-            next(new appError_1.appError("Hotel details not found for this order.", 404));
-            return;
-        }
-        // --- SHARED TABLE LOGIC ---
-        // If a table number is provided, check for an existing active order
-        if (tableNumber) {
-            const existingOrder = yield order_model_1.Order.findOne({
-                tableNumber: tableNumber,
-                status: { $nin: ["delivered", "cancelled"] },
+            const product = yield product_model_1.Product.findOne({
+                _id: item.productId,
+                isDeleted: false,
+                status: 'active'
             });
-            // If an active order exists, merge the cart into it
-            if (existingOrder) {
-                // Add current user to the order if they are not already part of it
-                existingOrder.users.addToSet(req.user._id);
-                // Add items from cart to the existing order (only selected items)
-                const newItems = itemsToOrder.map((item) => ({
-                    menuItem: item.menuItem,
-                    hotelId: item.hotelId,
-                    quantity: item.quantity,
-                    size: item.size,
-                    addons: item.addons,
-                    price: item.price,
-                    specialInstructions: item.specialInstructions || "",
-                    orderedBy: req.user._id,
-                    status: "pending",
-                    paymentMethod: paymentMethod,
-                    itemPaymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending',
-                }));
-                existingOrder.items.push(...newItems);
-                // Recalculate totals (using selected items subtotal)
-                const subtotalOfNewItems = selectedSubtotal;
-                existingOrder.subtotal += subtotalOfNewItems;
-                existingOrder.discountAmount = (existingOrder.discountAmount || 0) + (cart.discountAmount || 0);
-                existingOrder.cgstAmount = existingOrder.subtotal * ((hotel.cgstRate || 0) / 100);
-                existingOrder.sgstAmount = existingOrder.subtotal * ((hotel.sgstRate || 0) / 100);
-                existingOrder.serviceCharge = existingOrder.subtotal * ((hotel.serviceCharge || 0) / 100);
-                existingOrder.totalAmount =
-                    existingOrder.subtotal +
-                        existingOrder.cgstAmount +
-                        existingOrder.sgstAmount +
-                        (existingOrder.serviceCharge || 0) -
-                        (existingOrder.discountAmount || 0);
-                // Recalculate total amount paid based on all items
-                const totalPaid = existingOrder.items.reduce((acc, item) => {
-                    return item.itemPaymentStatus === 'paid' ? acc + item.price : acc;
-                }, 0);
-                const totalCgst = totalPaid * ((hotel.cgstRate || 0) / 100);
-                const totalSgst = totalPaid * ((hotel.sgstRate || 0) / 100);
-                // Calculate proportional service charge for paid items
-                const serviceChargeForPaid = existingOrder.subtotal > 0 ? (totalPaid / existingOrder.subtotal) * (existingOrder.serviceCharge || 0) : 0;
-                existingOrder.amountPaid = totalPaid + totalCgst + totalSgst + serviceChargeForPaid;
-                if (existingOrder.amountPaid >= existingOrder.totalAmount) {
-                    existingOrder.paymentStatus = "paid";
-                }
-                else if (existingOrder.amountPaid > 0) {
-                    existingOrder.paymentStatus = "partially-paid";
-                }
-                else {
-                    existingOrder.paymentStatus = "pending";
-                }
-                yield existingOrder.save();
-                // Handle cart cleanup for existing order
-                if (selectedItemIds && selectedItemIds.length > 0) {
-                    // Remove only the selected items from cart
-                    console.log("ORDER - Removing", selectedItemIds.length, "selected items from existing order cart");
-                    console.log("ORDER - Cart items before filtering:", cart.items.length);
-                    console.log("ORDER - Items to remove:", selectedItemIds);
-                    cart.items = cart.items.filter(item => {
-                        var _a;
-                        const itemIdStr = (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString();
-                        const shouldKeep = !itemIdStr || !selectedItemIds.includes(itemIdStr);
-                        console.log(`ORDER - Item ${itemIdStr}: ${shouldKeep ? 'KEEPING' : 'REMOVING'}`);
-                        return shouldKeep;
-                    });
-                    console.log("ORDER - Cart items after filtering:", cart.items.length);
-                    // Recalculate cart total
-                    cart.totalAmount = cart.items.reduce((sum, item) => sum + item.price, 0);
-                    // If no items left, delete the cart entirely, otherwise save it
-                    if (cart.items.length === 0) {
-                        if (cart.tableIdentifier) {
-                            console.log("ORDER - Deleting empty shared cart with tableIdentifier:", cart.tableIdentifier);
-                            yield cart_model_1.Cart.findOneAndDelete({ tableIdentifier: cart.tableIdentifier });
-                        }
-                        else {
-                            console.log("ORDER - Deleting empty personal cart for user:", req.user._id);
-                            yield cart_model_1.Cart.findOneAndDelete({ user: req.user._id });
-                        }
-                    }
-                    else {
-                        console.log("ORDER - Saving updated cart with", cart.items.length, "remaining items");
-                        yield cart.save();
-                    }
-                }
-                else {
-                    // No selection provided, clear the entire cart (fallback behavior)
-                    if (cart.tableIdentifier) {
-                        console.log("ORDER - Clearing shared cart with tableIdentifier:", cart.tableIdentifier);
-                        yield cart_model_1.Cart.findOneAndDelete({ tableIdentifier: cart.tableIdentifier });
-                    }
-                    else {
-                        console.log("ORDER - Clearing personal cart for user:", req.user._id);
-                        yield cart_model_1.Cart.findOneAndDelete({ user: req.user._id });
-                    }
-                }
-                const populatedOrder = yield populateOrderItems(existingOrder);
-                res.status(200).json({
-                    success: true,
-                    statusCode: 200,
-                    message: "Joined table and added items to order successfully",
-                    data: populatedOrder,
-                });
+            if (!product) {
+                next(new appError_1.appError(`Product not found: ${item.productId}`, 404));
                 return;
             }
+            if (product.stock < item.quantity) {
+                next(new appError_1.appError(`Insufficient stock for ${product.name}. Available: ${product.stock}`, 400));
+                return;
+            }
+            // Check color/size availability
+            if (item.selectedColor && product.colors && !product.colors.includes(item.selectedColor)) {
+                next(new appError_1.appError(`Color ${item.selectedColor} not available for ${product.name}`, 400));
+                return;
+            }
+            if (item.selectedSize && product.sizes && !product.sizes.includes(item.selectedSize)) {
+                next(new appError_1.appError(`Size ${item.selectedSize} not available for ${product.name}`, 400));
+                return;
+            }
+            const itemSubtotal = product.price * item.quantity;
+            subtotal += itemSubtotal;
+            orderItems.push({
+                product: product._id,
+                name: product.name,
+                price: product.price,
+                quantity: item.quantity,
+                selectedColor: item.selectedColor,
+                selectedSize: item.selectedSize,
+                thumbnail: product.thumbnail,
+                subtotal: itemSubtotal,
+            });
+            // Update product stock
+            product.stock -= item.quantity;
+            yield product.save();
         }
-        // --- CREATE NEW ORDER LOGIC ---
-        // Calculate amounts (using selected items)
-        const subtotal = selectedSubtotal;
-        const cgstAmount = subtotal * ((hotel.cgstRate || 0) / 100);
-        const sgstAmount = subtotal * ((hotel.sgstRate || 0) / 100);
-        const serviceChargeAmount = subtotal * ((hotel.serviceCharge || 0) / 100);
-        const totalAmount = subtotal + cgstAmount + sgstAmount + serviceChargeAmount;
-        const finalAmount = totalAmount - (cart.discountAmount || 0);
-        const newOrderItems = itemsToOrder.map((item) => ({
-            menuItem: item.menuItem,
-            hotelId: item.hotelId,
-            quantity: item.quantity,
-            size: item.size,
-            addons: item.addons,
-            price: item.price,
-            specialInstructions: item.specialInstructions || "",
-            orderedBy: req.user._id,
-            status: "pending",
-            paymentMethod: paymentMethod,
-            itemPaymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending',
-        }));
-        const subtotalFromItems = newOrderItems.reduce((acc, item) => acc + item.price, 0);
-        const cgstForItems = subtotalFromItems * ((hotel.cgstRate || 0) / 100);
-        const sgstForItems = subtotalFromItems * ((hotel.sgstRate || 0) / 100);
-        const amountPaid = newOrderItems.reduce((acc, item) => {
-            return item.itemPaymentStatus === 'paid' ? acc + item.price : acc;
-        }, 0);
-        const cgstForPaid = amountPaid * ((hotel.cgstRate || 0) / 100);
-        const sgstForPaid = amountPaid * ((hotel.sgstRate || 0) / 100);
-        // Calculate proportional service charge for paid items
-        const serviceChargeForPaid = subtotal > 0 ? (amountPaid / subtotal) * serviceChargeAmount : 0;
-        const totalAmountPaid = amountPaid + cgstForPaid + sgstForPaid + serviceChargeForPaid;
+        // Calculate totals
+        const shippingCost = shippingMethod === 'express' ? 100 : 50; // Example shipping costs
+        const tax = subtotal * 0.05; // 5% tax
+        let discount = 0;
+        // Apply coupon if provided (simplified logic)
+        if (couponCode === 'SAVE10') {
+            discount = subtotal * 0.1; // 10% discount
+        }
+        const totalAmount = subtotal + shippingCost + tax - discount;
+        // Create order
         const order = new order_model_1.Order({
-            users: [req.user._id],
-            items: newOrderItems,
+            user: userId,
+            items: orderItems,
             subtotal,
-            cgstAmount,
-            sgstAmount,
-            serviceCharge: serviceChargeAmount,
-            totalAmount: finalAmount,
-            amountPaid: totalAmountPaid,
-            couponCode: cart.appliedCouponCode,
-            discountAmount: cart.discountAmount,
-            paymentMethod,
-            paymentStatus: totalAmountPaid >= finalAmount
-                ? "paid"
-                : totalAmountPaid > 0
-                    ? "partially-paid"
-                    : "pending",
-            status: "pending",
-            paymentDetails: req.body.paymentDetails || {},
-            tableNumber,
-            specialInstructions,
+            shippingCost,
+            tax,
+            discount,
+            totalAmount,
+            shippingAddress,
+            billingAddress: billingAddress || shippingAddress,
+            paymentInfo: {
+                method: paymentMethod,
+                status: paymentMethod === 'cash_on_delivery' ? 'pending' : 'pending',
+                amount: totalAmount,
+            },
+            shippingMethod,
+            notes,
+            statusHistory: [{
+                    status: 'pending',
+                    timestamp: new Date(),
+                    note: 'Order created',
+                }],
         });
         yield order.save();
-        // After creating the order, update coupon usage
-        if (order.couponCode) {
-            const coupon = yield coupon_model_1.Coupon.findOne({ couponCode: order.couponCode });
-            if (coupon) {
-                coupon.totalUses += 1;
-                coupon.usedBy.push(req.user._id);
-                yield coupon.save();
+        // Clear user's cart after successful order
+        try {
+            const userCart = yield cart_model_1.Cart.findOne({ user: userId, isDeleted: false });
+            if (userCart) {
+                yield userCart.clearCart();
             }
         }
-        // Mark table as booked
-        if (tableNumber) {
-            yield qrcode_model_1.QRCode.findOneAndUpdate({ hotelId: hotel._id, tableNumber: tableNumber, isDeleted: false }, { status: "booked" }, { new: true });
+        catch (error) {
+            // Cart clearing failure shouldn't fail the order
+            console.log('Failed to clear cart:', error);
         }
-        // Handle cart cleanup after creating the order
-        if (selectedItemIds && selectedItemIds.length > 0) {
-            // Remove only the selected items from cart
-            console.log("ORDER - Removing", selectedItemIds.length, "selected items from cart");
-            console.log("ORDER - Cart items before filtering:", cart.items.length);
-            console.log("ORDER - Items to remove:", selectedItemIds);
-            cart.items = cart.items.filter(item => {
-                var _a;
-                const itemIdStr = (_a = item._id) === null || _a === void 0 ? void 0 : _a.toString();
-                const shouldKeep = !itemIdStr || !selectedItemIds.includes(itemIdStr);
-                console.log(`ORDER - Item ${itemIdStr}: ${shouldKeep ? 'KEEPING' : 'REMOVING'}`);
-                return shouldKeep;
-            });
-            console.log("ORDER - Cart items after filtering:", cart.items.length);
-            // Recalculate cart total
-            cart.totalAmount = cart.items.reduce((sum, item) => sum + item.price, 0);
-            // If no items left, delete the cart entirely, otherwise save it
-            if (cart.items.length === 0) {
-                if (cart.tableIdentifier) {
-                    console.log("ORDER - Deleting empty shared cart with tableIdentifier:", cart.tableIdentifier);
-                    yield cart_model_1.Cart.findOneAndDelete({ tableIdentifier: cart.tableIdentifier });
-                }
-                else {
-                    console.log("ORDER - Deleting empty personal cart for user:", req.user._id);
-                    yield cart_model_1.Cart.findOneAndDelete({ user: req.user._id });
-                }
-            }
-            else {
-                console.log("ORDER - Saving updated cart with", cart.items.length, "remaining items");
-                yield cart.save();
-            }
-        }
-        else {
-            // No selection provided, clear the entire cart (fallback behavior)
-            if (cart.tableIdentifier) {
-                console.log("ORDER - Clearing shared cart with tableIdentifier:", cart.tableIdentifier);
-                yield cart_model_1.Cart.findOneAndDelete({ tableIdentifier: cart.tableIdentifier });
-            }
-            else {
-                console.log("ORDER - Clearing personal cart for user:", req.user._id);
-                yield cart_model_1.Cart.findOneAndDelete({ user: req.user._id });
-            }
-        }
-        const populatedOrder = yield populateOrderItems(order);
+        // Populate order details
+        const populatedOrder = yield order_model_1.Order.findById(order._id)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail');
         res.status(201).json({
             success: true,
             statusCode: 201,
-            message: "Order created successfully",
+            message: 'Order created successfully',
             data: populatedOrder,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
 exports.createOrder = createOrder;
-// Get all orders for the current user
+// Get user's orders
 const getUserOrders = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const orders = yield order_model_1.Order.find({ users: req.user._id })
-            .sort({ createdAt: -1 });
-        if (orders.length === 0) {
-            res.status(200).json({
-                success: true,
-                statusCode: 200,
-                message: "No orders found",
-                data: []
-            });
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { page = 1, limit = 10, status, paymentStatus, dateFrom, dateTo, sort = '-orderDate' } = req.query;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
             return;
         }
-        // Manually populate menu items from hotels for each order
-        const populatedOrders = yield Promise.all(orders.map((order) => __awaiter(void 0, void 0, void 0, function* () {
-            const populatedItems = yield Promise.all(order.items.map((item) => __awaiter(void 0, void 0, void 0, function* () {
-                const hotel = yield hotel_model_1.Hotel.findById(item.hotelId);
-                let menuItemData = null;
-                if (hotel) {
-                    for (const category of hotel.menuCategories) {
-                        const menuItem = category.items.find(mi => mi.id === item.menuItem);
-                        if (menuItem) {
-                            menuItemData = {
-                                id: menuItem.id,
-                                title: menuItem.title,
-                                image: menuItem.image,
-                                description: menuItem.description,
-                                price: menuItem.price,
-                                category: category.name
-                            };
-                            break;
-                        }
-                    }
-                }
-                return Object.assign(Object.assign({}, item.toObject()), { menuItemData });
-            })));
-            return Object.assign(Object.assign({}, order.toObject()), { items: populatedItems });
-        })));
+        const filter = { user: userId, isDeleted: false };
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (dateFrom || dateTo) {
+            filter.orderDate = {};
+            if (dateFrom)
+                filter.orderDate.$gte = new Date(dateFrom);
+            if (dateTo)
+                filter.orderDate.$lte = new Date(dateTo);
+        }
+        const skip = (Number(page) - 1) * Number(limit);
+        const [orders, total] = yield Promise.all([
+            order_model_1.Order.find(filter)
+                .populate('user', 'name email phone')
+                .populate('items.product', 'name price images thumbnail')
+                .sort(sort)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            order_model_1.Order.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Orders retrieved successfully",
-            data: populatedOrders
+            message: 'Orders retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: orders,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
 exports.getUserOrders = getUserOrders;
-// Get a specific order by ID
-const getOrderById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const orderId = req.params.id;
-        const userId = req.user._id;
-        const userRole = req.user.role;
-        let matchCondition = { _id: orderId };
-        // If user is not admin, add additional filters
-        if (userRole !== 'admin') {
-            if (userRole === 'vendor') {
-                // For vendors, check if order contains items from their hotels
-                const vendorHotels = yield hotel_model_1.Hotel.find({
-                    vendorId: userId,
-                    isDeleted: false
-                }).select('_id');
-                const hotelIds = vendorHotels.map(hotel => hotel._id);
-                matchCondition['items.hotelId'] = { $in: hotelIds };
-            }
-            else {
-                // For regular users, only show their own orders
-                matchCondition.users = userId;
-            }
-        }
-        const order = yield order_model_1.Order.findOne(matchCondition)
-            .populate({
-            path: 'users',
-            select: 'name phone email'
-        });
-        if (!order) {
-            return next(new appError_1.appError("Order not found or you don't have permission to view it", 404));
-        }
-        // Manually populate menu items from hotels
-        const populatedItems = yield Promise.all(order.items.map((item) => __awaiter(void 0, void 0, void 0, function* () {
-            const hotel = yield hotel_model_1.Hotel.findById(item.hotelId);
-            let menuItemData = null;
-            if (hotel) {
-                for (const category of hotel.menuCategories) {
-                    const menuItem = category.items.find(mi => mi.id === item.menuItem);
-                    if (menuItem) {
-                        menuItemData = {
-                            id: menuItem.id,
-                            title: menuItem.title,
-                            image: menuItem.image,
-                            description: menuItem.description,
-                            price: menuItem.price,
-                            category: category.name
-                        };
-                        break;
-                    }
-                }
-            }
-            return Object.assign(Object.assign({}, item.toObject()), { menuItemData });
-        })));
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Order retrieved successfully",
-            data: Object.assign(Object.assign({}, order.toObject()), { items: populatedItems })
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.getOrderById = getOrderById;
-// Update order status (Admin only)
-const updateOrderStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { status } = order_validation_1.updateOrderStatusValidation.parse(req.body);
-        const orderId = req.params.id;
-        const userId = req.user._id;
-        const userRole = req.user.role;
-        let matchCondition = { _id: orderId };
-        // If user is not admin, add additional filters
-        if (userRole !== 'admin') {
-            if (userRole === 'vendor') {
-                // For vendors, check if order contains items from their hotels
-                const vendorHotels = yield hotel_model_1.Hotel.find({
-                    vendorId: userId,
-                    isDeleted: false
-                }).select('_id');
-                const hotelIds = vendorHotels.map(hotel => hotel._id);
-                matchCondition['items.hotelId'] = { $in: hotelIds };
-            }
-            else {
-                return next(new appError_1.appError("Unauthorized to update order status", 403));
-            }
-        }
-        const order = yield order_model_1.Order.findOne(matchCondition);
-        if (!order) {
-            return next(new appError_1.appError("Order not found or you don't have permission to update it", 404));
-        }
-        order.status = status;
-        yield order.save();
-        // If order is delivered or cancelled, make the table available again
-        if ((status === 'delivered' || status === 'cancelled') && order.tableNumber && order.items.length > 0) {
-            const hotelId = order.items[0].hotelId;
-            if (hotelId) {
-                yield qrcode_model_1.QRCode.findOneAndUpdate({ hotelId: hotelId, tableNumber: order.tableNumber, isDeleted: false }, { status: 'available' }, { new: true });
-            }
-        }
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Order status updated successfully",
-            data: order
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.updateOrderStatus = updateOrderStatus;
-// Update payment status
-const updatePaymentStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { paymentStatus } = order_validation_1.updatePaymentStatusValidation.parse(req.body);
-        const order = yield order_model_1.Order.findOne({
-            _id: req.params.id,
-            users: req.user._id
-        });
-        if (!order) {
-            return next(new appError_1.appError("Order not found", 404));
-        }
-        order.paymentStatus = paymentStatus;
-        // If payment is completed via Razorpay, update table status to 'booked'
-        if (order.paymentMethod === 'razorpay' && paymentStatus === 'paid' && order.tableNumber) {
-            const hotel = yield hotel_model_1.Hotel.findById(order.items[0].hotelId);
-            if (hotel) {
-                yield qrcode_model_1.QRCode.findOneAndUpdate({ hotelId: hotel._id, tableNumber: order.tableNumber, isDeleted: false }, { status: 'booked' }, { new: true });
-            }
-        }
-        yield order.save();
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Payment status updated successfully",
-            data: order
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.updatePaymentStatus = updatePaymentStatus;
-// Get dashboard statistics
-const getDashboardStats = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    try {
-        const userId = req.user._id;
-        const userRole = req.user.role;
-        let matchCondition = {};
-        // If vendor, only show stats for their hotels' orders
-        if (userRole === 'vendor') {
-            // Get vendor's hotels
-            const vendorHotels = yield hotel_model_1.Hotel.find({
-                vendorId: userId,
-                isDeleted: false
-            }).select('_id');
-            const hotelIds = vendorHotels.map(hotel => hotel._id);
-            matchCondition = { 'items.hotelId': { $in: hotelIds } };
-        }
-        // Get total orders
-        const totalOrders = yield order_model_1.Order.countDocuments(matchCondition);
-        // Get orders by status
-        const [pendingOrders, processingOrders, completedOrders] = yield Promise.all([
-            order_model_1.Order.countDocuments(Object.assign(Object.assign({}, matchCondition), { status: 'pending' })),
-            order_model_1.Order.countDocuments(Object.assign(Object.assign({}, matchCondition), { status: 'processing' })),
-            order_model_1.Order.countDocuments(Object.assign(Object.assign({}, matchCondition), { status: 'delivered' }))
-        ]);
-        // Get total revenue
-        const revenueResult = yield order_model_1.Order.aggregate([
-            { $match: Object.assign(Object.assign({}, matchCondition), { paymentStatus: 'completed' }) },
-            { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } }
-        ]);
-        const totalRevenue = ((_a = revenueResult[0]) === null || _a === void 0 ? void 0 : _a.totalRevenue) || 0;
-        // Get monthly revenue for the last 12 months
-        const monthlyRevenue = yield order_model_1.Order.aggregate([
-            {
-                $match: Object.assign(Object.assign({}, matchCondition), { paymentStatus: 'completed', createdAt: {
-                        $gte: new Date(new Date().setMonth(new Date().getMonth() - 12))
-                    } })
-            },
-            {
-                $group: {
-                    _id: {
-                        year: { $year: '$createdAt' },
-                        month: { $month: '$createdAt' }
-                    },
-                    revenue: { $sum: '$totalAmount' },
-                    orders: { $sum: 1 }
-                }
-            },
-            {
-                $project: {
-                    month: {
-                        $dateToString: {
-                            format: '%Y-%m',
-                            date: {
-                                $dateFromParts: {
-                                    year: '$_id.year',
-                                    month: '$_id.month'
-                                }
-                            }
-                        }
-                    },
-                    revenue: 1,
-                    orders: 1
-                }
-            },
-            { $sort: { month: 1 } }
-        ]);
-        let topMenuItems = [];
-        // Get top menu items for vendors
-        if (userRole === 'vendor') {
-            const vendorHotels = yield hotel_model_1.Hotel.find({
-                vendorId: userId,
-                isDeleted: false
-            });
-            // Get all menu items from vendor's hotels
-            const allMenuItems = [];
-            vendorHotels.forEach(hotel => {
-                hotel.menuCategories.forEach(category => {
-                    category.items.forEach(item => {
-                        allMenuItems.push({
-                            id: item.id,
-                            title: item.title,
-                            image: item.image,
-                            hotelId: hotel._id
-                        });
-                    });
-                });
-            });
-            // Get order statistics for these menu items
-            const menuItemStats = yield order_model_1.Order.aggregate([
-                { $match: matchCondition },
-                { $unwind: '$items' },
-                {
-                    $group: {
-                        _id: '$items.menuItem',
-                        totalOrders: { $sum: '$items.quantity' },
-                        totalRevenue: { $sum: '$items.price' }
-                    }
-                },
-                { $sort: { totalOrders: -1 } },
-                { $limit: 5 }
-            ]);
-            topMenuItems = menuItemStats.map(stat => {
-                const menuItem = allMenuItems.find(item => item.id === stat._id);
-                return {
-                    id: stat._id,
-                    title: (menuItem === null || menuItem === void 0 ? void 0 : menuItem.title) || 'Unknown Item',
-                    image: (menuItem === null || menuItem === void 0 ? void 0 : menuItem.image) || '',
-                    totalOrders: stat.totalOrders,
-                    totalRevenue: stat.totalRevenue
-                };
-            }).filter(item => item.title !== 'Unknown Item');
-        }
-        const responseData = {
-            totalOrders,
-            totalRevenue,
-            pendingOrders,
-            processingOrders,
-            completedOrders,
-            monthlyRevenue
-        };
-        if (userRole === 'vendor') {
-            responseData.topMenuItems = topMenuItems;
-        }
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: "Dashboard statistics retrieved successfully",
-            data: responseData
-        });
-    }
-    catch (error) {
-        next(error);
-    }
-});
-exports.getDashboardStats = getDashboardStats;
-// Get all orders (Admin only)
+// Get all orders (admin only)
 const getAllOrders = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user._id;
-        const userRole = req.user.role;
-        // Get query parameters
-        const { page = 1, limit = 10, status, paymentStatus } = req.query;
-        let matchCondition = {};
-        // If vendor, only show orders for their hotels
-        if (userRole === 'vendor') {
-            const vendorHotels = yield hotel_model_1.Hotel.find({
-                vendorId: userId,
-                isDeleted: false
-            }).select('_id');
-            const hotelIds = vendorHotels.map(hotel => hotel._id);
-            matchCondition = { 'items.hotelId': { $in: hotelIds } };
+        const { page = 1, limit = 10, status, paymentStatus, dateFrom, dateTo, sort = '-orderDate' } = req.query;
+        const filter = { isDeleted: false };
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (dateFrom || dateTo) {
+            filter.orderDate = {};
+            if (dateFrom)
+                filter.orderDate.$gte = new Date(dateFrom);
+            if (dateTo)
+                filter.orderDate.$lte = new Date(dateTo);
         }
-        // Add filters
-        if (status) {
-            matchCondition.status = status;
-        }
-        if (paymentStatus) {
-            matchCondition.paymentStatus = paymentStatus;
-        }
-        // Calculate pagination
-        const pageNum = parseInt(page) || 1;
-        const limitNum = parseInt(limit) || 10;
-        const skip = (pageNum - 1) * limitNum;
-        // Get total count
-        const total = yield order_model_1.Order.countDocuments(matchCondition);
-        // Get orders with pagination
-        const orders = yield order_model_1.Order.find(matchCondition)
-            .populate({
-            path: 'users',
-            select: 'name phone email'
-        })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limitNum);
-        if (orders.length === 0) {
-            res.status(200).json({
-                success: true,
-                statusCode: 200,
-                message: "No orders found",
-                data: {
-                    orders: [],
-                    pagination: {
-                        total: 0,
-                        page: pageNum,
-                        limit: limitNum,
-                        pages: 0
-                    }
-                }
-            });
-            return;
-        }
-        // Manually populate menu items from hotels for each order
-        const populatedOrders = yield Promise.all(orders.map((order) => __awaiter(void 0, void 0, void 0, function* () {
-            const populatedItems = yield Promise.all(order.items.map((item) => __awaiter(void 0, void 0, void 0, function* () {
-                const hotel = yield hotel_model_1.Hotel.findById(item.hotelId);
-                let menuItemData = null;
-                if (hotel) {
-                    for (const category of hotel.menuCategories) {
-                        const menuItem = category.items.find(mi => mi.id === item.menuItem);
-                        if (menuItem) {
-                            menuItemData = {
-                                id: menuItem.id,
-                                title: menuItem.title,
-                                image: menuItem.image,
-                                description: menuItem.description,
-                                price: menuItem.price,
-                                category: category.name
-                            };
-                            break;
-                        }
-                    }
-                }
-                return Object.assign(Object.assign({}, item.toObject()), { menuItemData });
-            })));
-            return Object.assign(Object.assign({}, order.toObject()), { items: populatedItems });
-        })));
-        // Calculate pagination info
-        const totalPages = Math.ceil(total / limitNum);
+        const skip = (Number(page) - 1) * Number(limit);
+        const [orders, total] = yield Promise.all([
+            order_model_1.Order.find(filter)
+                .populate('user', 'name email phone')
+                .populate('items.product', 'name price images thumbnail')
+                .sort(sort)
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            order_model_1.Order.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Orders retrieved successfully",
-            data: {
-                orders: populatedOrders,
-                pagination: {
-                    total,
-                    page: pageNum,
-                    limit: limitNum,
-                    pages: totalPages
-                }
-            }
+            message: 'Orders retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+            },
+            data: orders,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
 exports.getAllOrders = getAllOrders;
-const updateOrderItemStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+// Get single order by ID
+const getOrderById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
-        const { orderId, itemId } = req.params;
-        const { status } = req.body;
-        if (!status || !['pending', 'preparing', 'served', 'cancelled'].includes(status)) {
-            return next(new appError_1.appError("Invalid status provided.", 400));
+        const { id } = req.params;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
         }
-        const order = yield order_model_1.Order.findById(orderId);
+        const filter = { _id: id, isDeleted: false };
+        // Non-admin users can only view their own orders
+        if (userRole !== 'admin') {
+            filter.user = userId;
+        }
+        const order = yield order_model_1.Order.findOne(filter)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail')
+            .lean();
         if (!order) {
-            return next(new appError_1.appError("Order not found.", 404));
+            next(new appError_1.appError('Order not found', 404));
+            return;
         }
-        const item = order.items.find((item) => item._id.toString() === itemId);
-        if (!item) {
-            return next(new appError_1.appError("Item not found in this order.", 404));
-        }
-        item.status = status;
-        yield order.save();
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Order item status updated successfully.",
+            message: 'Order retrieved successfully',
             data: order,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.updateOrderItemStatus = updateOrderItemStatus;
-const recordManualPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getOrderById = getOrderById;
+// Update order status (admin only)
+const updateOrderStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { orderId } = req.params;
-        const { amount } = req.body;
-        if (!amount || typeof amount !== 'number' || amount <= 0) {
-            return next(new appError_1.appError("Invalid payment amount provided.", 400));
+        const { id } = req.params;
+        const { status, note, trackingNumber, estimatedDelivery } = req.body;
+        const adminId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
         }
-        const order = yield order_model_1.Order.findById(orderId);
+        const order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false });
         if (!order) {
-            return next(new appError_1.appError("Order not found.", 404));
+            next(new appError_1.appError('Order not found', 404));
+            return;
         }
-        // The amount provided should already include taxes and service charge
-        // as calculated by the frontend, so we add it directly
-        order.amountPaid = (order.amountPaid || 0) + amount;
-        order.paymentMethod = 'manual';
-        if (order.amountPaid >= order.totalAmount) {
-            order.paymentStatus = 'paid';
-        }
-        else {
-            order.paymentStatus = 'partially-paid';
-        }
+        // Update order status using instance method
+        yield order.updateStatus(status, note, adminId);
+        // Update additional fields if provided
+        if (trackingNumber)
+            order.trackingNumber = trackingNumber;
+        if (estimatedDelivery)
+            order.estimatedDelivery = new Date(estimatedDelivery);
         yield order.save();
+        // Get updated order with populated data
+        const updatedOrder = yield order_model_1.Order.findById(id)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail');
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Payment recorded successfully.",
-            data: order,
+            message: 'Order status updated successfully',
+            data: updatedOrder,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.recordManualPayment = recordManualPayment;
-const completeOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.updateOrderStatus = updateOrderStatus;
+// Cancel order
+const cancelOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
-        const { orderId } = req.params;
-        const order = yield order_model_1.Order.findById(orderId);
+        const { id } = req.params;
+        const { reason } = req.body;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
+        }
+        const filter = { _id: id, isDeleted: false };
+        // Non-admin users can only cancel their own orders
+        if (userRole !== 'admin') {
+            filter.user = userId;
+        }
+        const order = yield order_model_1.Order.findOne(filter);
         if (!order) {
-            return next(new appError_1.appError("Order not found.", 404));
+            next(new appError_1.appError('Order not found', 404));
+            return;
         }
-        if (order.paymentStatus !== 'paid') {
-            return next(new appError_1.appError("Order must be fully paid before completion.", 400));
+        // Check if order can be cancelled
+        if (['delivered', 'cancelled', 'returned'].includes(order.status)) {
+            next(new appError_1.appError(`Cannot cancel order with status: ${order.status}`, 400));
+            return;
         }
-        order.status = 'delivered';
-        if (order.tableNumber && order.items.length > 0) {
-            const hotelId = order.items[0].hotelId;
-            yield qrcode_model_1.QRCode.findOneAndUpdate({ hotelId: hotelId, tableNumber: order.tableNumber, isDeleted: false }, { status: 'available' }, { new: true });
+        // Cancel order using instance method
+        yield order.cancelOrder(reason, userId);
+        // Restore product stock
+        for (const item of order.items) {
+            yield product_model_1.Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
         }
-        yield order.save();
+        // Get updated order with populated data
+        const updatedOrder = yield order_model_1.Order.findById(id)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail');
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Order completed and table is now available.",
-            data: order,
+            message: 'Order cancelled successfully',
+            data: updatedOrder,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.completeOrder = completeOrder;
-const payForItems = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.cancelOrder = cancelOrder;
+// Return order
+const returnOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
-        const { orderId } = req.params;
-        const { itemIds, paymentDetails, paymentId } = req.body;
-        if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
-            return next(new appError_1.appError("No items selected for payment.", 400));
+        const { id } = req.params;
+        const { reason } = req.body;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
         }
-        const order = yield order_model_1.Order.findById(orderId);
+        const filter = { _id: id, isDeleted: false };
+        // Non-admin users can only return their own orders
+        if (userRole !== 'admin') {
+            filter.user = userId;
+        }
+        const order = yield order_model_1.Order.findOne(filter);
         if (!order) {
-            return next(new appError_1.appError("Order not found.", 404));
+            next(new appError_1.appError('Order not found', 404));
+            return;
         }
-        const hotel = yield hotel_model_1.Hotel.findById(order.items[0].hotelId);
-        if (!hotel) {
-            return next(new appError_1.appError("Hotel details not found for this order.", 404));
+        // Check if order can be returned
+        if (order.status !== 'delivered') {
+            next(new appError_1.appError('Only delivered orders can be returned', 400));
+            return;
         }
-        if (!order.users.includes(req.user._id)) {
-            return next(new appError_1.appError("You are not authorized to pay for this order.", 403));
-        }
-        let amountJustPaid = 0;
-        order.items.forEach(item => {
-            if (itemIds.includes(item._id.toString()) && item.itemPaymentStatus === 'pending') {
-                item.itemPaymentStatus = 'paid';
-                item.paymentMethod = 'razorpay';
-                amountJustPaid += item.price;
-            }
+        // Update order status to returned
+        order.status = 'returned';
+        order.returnReason = reason;
+        order.statusHistory.push({
+            status: 'returned',
+            timestamp: new Date(),
+            note: `Order returned: ${reason}`,
+            updatedBy: userId,
         });
-        if (amountJustPaid === 0) {
-            return next(new appError_1.appError("Selected items are already paid or invalid.", 400));
-        }
-        const cgstForPayment = amountJustPaid * ((hotel.cgstRate || 0) / 100);
-        const sgstForPayment = amountJustPaid * ((hotel.sgstRate || 0) / 100);
-        // Calculate proportional service charge for the items being paid
-        const serviceChargeForPayment = order.subtotal > 0 ? (amountJustPaid / order.subtotal) * order.serviceCharge : 0;
-        const totalAmountForThisPayment = amountJustPaid + cgstForPayment + sgstForPayment + serviceChargeForPayment;
-        order.amountPaid = (order.amountPaid || 0) + totalAmountForThisPayment;
-        if (paymentId && paymentDetails) {
-            order.paymentId = paymentId;
-            order.paymentDetails = paymentDetails;
-        }
-        if (order.amountPaid >= order.totalAmount) {
-            order.paymentStatus = "paid";
-        }
-        else {
-            order.paymentStatus = "partially-paid";
-        }
         yield order.save();
-        const populatedOrder = yield populateOrderItems(order);
+        // Get updated order with populated data
+        const updatedOrder = yield order_model_1.Order.findById(id)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail');
         res.status(200).json({
             success: true,
             statusCode: 200,
-            message: "Payment successful for selected items.",
-            data: populatedOrder,
+            message: 'Order returned successfully',
+            data: updatedOrder,
         });
+        return;
     }
     catch (error) {
         next(error);
     }
 });
-exports.payForItems = payForItems;
+exports.returnOrder = returnOrder;
+// Update payment status (admin only)
+const updatePaymentStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { paymentStatus, transactionId, paymentDate } = req.body;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
+        }
+        const order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false });
+        if (!order) {
+            next(new appError_1.appError('Order not found', 404));
+            return;
+        }
+        // Update payment info
+        order.paymentStatus = paymentStatus;
+        order.paymentInfo.status = paymentStatus;
+        if (transactionId)
+            order.paymentInfo.transactionId = transactionId;
+        if (paymentDate)
+            order.paymentInfo.paymentDate = new Date(paymentDate);
+        if (paymentStatus === 'paid')
+            order.paymentInfo.paymentDate = new Date();
+        yield order.save();
+        // Get updated order with populated data
+        const updatedOrder = yield order_model_1.Order.findById(id)
+            .populate('user', 'name email phone')
+            .populate('items.product', 'name price images thumbnail');
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Payment status updated successfully',
+            data: updatedOrder,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.updatePaymentStatus = updatePaymentStatus;
+// Get order summary/statistics (admin only)
+const getOrderSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const [totalOrders, pendingOrders, completedOrders, totalRevenue] = yield Promise.all([
+            order_model_1.Order.countDocuments({ isDeleted: false }),
+            order_model_1.Order.countDocuments({ status: 'pending', isDeleted: false }),
+            order_model_1.Order.countDocuments({ status: 'delivered', isDeleted: false }),
+            order_model_1.Order.aggregate([
+                { $match: { status: 'delivered', isDeleted: false } },
+                { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+            ]),
+        ]);
+        const summary = {
+            totalOrders,
+            pendingOrders,
+            completedOrders,
+            totalRevenue: ((_a = totalRevenue[0]) === null || _a === void 0 ? void 0 : _a.total) || 0,
+        };
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Order summary retrieved successfully',
+            data: summary,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getOrderSummary = getOrderSummary;

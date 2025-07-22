@@ -119,7 +119,7 @@ export const createOrder = async (
     try {
       const userCart = await Cart.findOne({ user: userId, isDeleted: false });
       if (userCart) {
-        await userCart.clearCart();
+        await (userCart as any).clearCart();
       }
     } catch (error) {
       // Cart clearing failure shouldn't fail the order
@@ -324,7 +324,7 @@ export const updateOrderStatus = async (
     }
 
     // Update order status using instance method
-    await order.updateStatus(status, note, adminId);
+    await (order as any).updateStatus(status, note, adminId);
 
     // Update additional fields if provided
     if (trackingNumber) order.trackingNumber = trackingNumber;
@@ -387,7 +387,7 @@ export const cancelOrder = async (
     }
 
     // Cancel order using instance method
-    await order.cancelOrder(reason, userId);
+    await (order as any).cancelOrder(reason, userId);
 
     // Restore product stock
     for (const item of order.items) {

@@ -42,11 +42,11 @@ const WishlistSchema: Schema = new Schema(
     timestamps: true,
     toJSON: {
       transform: function(doc, ret) {
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { 
-          timeZone: 'Asia/Kolkata' 
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
         });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { 
-          timeZone: 'Asia/Kolkata' 
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
         });
         return ret;
       }
@@ -63,7 +63,7 @@ WishlistSchema.index({ 'items.addedAt': -1 });
 // Pre-save middleware to update totalItems
 WishlistSchema.pre('save', function(next) {
   if (this.isModified('items')) {
-    this.totalItems = this.items.length;
+    (this as any).totalItems = (this as any).items.length;
   }
   next();
 });
@@ -106,7 +106,7 @@ WishlistSchema.methods.addItem = function(productId: string, notes?: string) {
     });
   }
 
-  this.totalItems = this.items.length;
+  (this as any).totalItems = (this as any).items.length;
   return this.save();
 };
 
@@ -115,14 +115,14 @@ WishlistSchema.methods.removeItem = function(productId: string) {
   this.items = this.items.filter(
     (item: any) => item.product.toString() !== productId
   );
-  this.totalItems = this.items.length;
+  (this as any).totalItems = (this as any).items.length;
   return this.save();
 };
 
 // Instance method to clear wishlist
 WishlistSchema.methods.clearWishlist = function() {
   this.items = [];
-  this.totalItems = 0;
+  (this as any).totalItems = 0;
   return this.save();
 };
 
@@ -152,14 +152,14 @@ WishlistSchema.virtual('recentItems').get(function() {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   
-  return this.items.filter((item: any) => item.addedAt >= sevenDaysAgo);
+  return (this as any).items.filter((item: any) => item.addedAt >= sevenDaysAgo);
 });
 
 // Virtual for items count by category (requires population)
 WishlistSchema.virtual('itemsByCategory').get(function() {
   const categoryMap = new Map();
   
-  this.items.forEach((item: any) => {
+  (this as any).items.forEach((item: any) => {
     if (item.product && item.product.category) {
       const categoryId = item.product.category._id || item.product.category;
       const categoryName = item.product.category.name || 'Unknown';

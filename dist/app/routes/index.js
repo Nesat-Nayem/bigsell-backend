@@ -14,6 +14,9 @@ const blog_routes_1 = require("../modules/blog/blog.routes");
 const upload_routes_1 = require("../modules/upload/upload.routes");
 const product_routes_1 = require("../modules/product/product.routes");
 const cart_routes_1 = require("../modules/cart/cart.routes");
+const order_routes_1 = require("../modules/order/order.routes");
+const payment_routes_1 = require("../modules/payment/payment.routes");
+const wishlist_routes_1 = require("../modules/wishlist/wishlist.routes");
 const router = (0, express_1.Router)();
 const moduleRoutes = [
     {
@@ -67,6 +70,18 @@ const moduleRoutes = [
     {
         path: "/cart",
         route: cart_routes_1.cartRouter,
+    },
+    {
+        path: "/orders",
+        route: order_routes_1.orderRouter,
+    },
+    {
+        path: "/payments",
+        route: payment_routes_1.paymentRouter,
+    },
+    {
+        path: "/wishlist",
+        route: wishlist_routes_1.wishlistRouter,
     },
 ];
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
