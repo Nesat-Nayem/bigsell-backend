@@ -233,6 +233,8 @@ ProductSchema.virtual('stockStatus').get(function () {
         return 'out_of_stock';
     if (this.stock <= this.minStock)
         return 'low_stock';
+    else if (this.stock > 0 && this.status === 'out_of_stock')
+        return 'in_stock';
     return 'in_stock';
 });
 // Pre-save middleware to update status based on stock

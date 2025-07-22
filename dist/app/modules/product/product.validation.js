@@ -4,34 +4,20 @@ exports.ProductValidation = void 0;
 const zod_1 = require("zod");
 const createProductValidation = zod_1.z.object({
     body: zod_1.z.object({
-        name: zod_1.z.string({
-            required_error: 'Product name is required',
-        }).min(1, 'Product name cannot be empty').max(200, 'Product name too long'),
-        description: zod_1.z.string({
-            required_error: 'Product description is required',
-        }).min(10, 'Description must be at least 10 characters'),
+        name: zod_1.z.string().nonempty('Product name is required').min(1, 'Product name cannot be empty').max(200, 'Product name too long'),
+        description: zod_1.z.string().nonempty('Product description is required').min(10, 'Description must be at least 10 characters'),
         shortDescription: zod_1.z.string().max(500, 'Short description too long').optional(),
-        price: zod_1.z.number({
-            required_error: 'Price is required',
-        }).min(0, 'Price must be positive'),
+        price: zod_1.z.number().min(0, 'Price must be positive'),
         originalPrice: zod_1.z.number().min(0, 'Original price must be positive').optional(),
         discount: zod_1.z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100%').optional(),
         discountType: zod_1.z.enum(['percentage', 'fixed']).optional(),
-        sku: zod_1.z.string({
-            required_error: 'SKU is required',
-        }).min(1, 'SKU cannot be empty'),
-        category: zod_1.z.string({
-            required_error: 'Category is required',
-        }).regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID'),
+        sku: zod_1.z.string().nonempty('SKU is required').min(1, 'SKU cannot be empty'),
+        category: zod_1.z.string().nonempty('Category is required').regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID'),
         subcategory: zod_1.z.string().optional(),
         brand: zod_1.z.string().optional(),
         images: zod_1.z.array(zod_1.z.string().url('Invalid image URL')).min(1, 'At least one image is required'),
-        thumbnail: zod_1.z.string({
-            required_error: 'Thumbnail is required',
-        }).url('Invalid thumbnail URL'),
-        stock: zod_1.z.number({
-            required_error: 'Stock quantity is required',
-        }).min(0, 'Stock cannot be negative'),
+        thumbnail: zod_1.z.string().nonempty('Thumbnail is required').url('Invalid thumbnail URL'),
+        stock: zod_1.z.number().min(0, 'Stock cannot be negative'),
         minStock: zod_1.z.number().min(0, 'Minimum stock cannot be negative').optional(),
         weight: zod_1.z.number().min(0, 'Weight cannot be negative').optional(),
         dimensions: zod_1.z.object({
@@ -43,7 +29,7 @@ const createProductValidation = zod_1.z.object({
         sizes: zod_1.z.array(zod_1.z.string()).optional(),
         tags: zod_1.z.array(zod_1.z.string()).optional(),
         features: zod_1.z.array(zod_1.z.string()).optional(),
-        specifications: zod_1.z.record(zod_1.z.string()).optional(),
+        specifications: zod_1.z.record(zod_1.z.string(), zod_1.z.string()).optional(),
         status: zod_1.z.enum(['active', 'inactive', 'out_of_stock', 'discontinued']).optional(),
         isFeatured: zod_1.z.boolean().optional(),
         isTrending: zod_1.z.boolean().optional(),
@@ -87,7 +73,7 @@ const updateProductValidation = zod_1.z.object({
         sizes: zod_1.z.array(zod_1.z.string()).optional(),
         tags: zod_1.z.array(zod_1.z.string()).optional(),
         features: zod_1.z.array(zod_1.z.string()).optional(),
-        specifications: zod_1.z.record(zod_1.z.string()).optional(),
+        specifications: zod_1.z.record(zod_1.z.string(), zod_1.z.string()).optional(),
         status: zod_1.z.enum(['active', 'inactive', 'out_of_stock', 'discontinued']).optional(),
         isFeatured: zod_1.z.boolean().optional(),
         isTrending: zod_1.z.boolean().optional(),

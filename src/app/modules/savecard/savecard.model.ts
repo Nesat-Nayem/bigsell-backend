@@ -43,14 +43,14 @@ const SaveCardSchema: Schema = new Schema(
     toJSON: { 
       transform: function(doc, ret) {
         // Mask card number for security
-        if (ret.cardNumber) {
-          ret.cardNumber = '****' + ret.cardNumber.slice(-4);
+        if ((ret as any).cardNumber) {
+          (ret as any).cardNumber = '****' + (ret as any).cardNumber.slice(-4);
         }
         // Remove CVV from response
-        delete ret.cvv;
+        delete (ret as any).cvv;
         
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
       }
     }
   }

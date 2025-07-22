@@ -53,7 +53,7 @@ const getCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* 
 exports.getCart = getCart;
 // Add item to cart
 const addToCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b, _c;
     try {
         const userId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a._id;
         const { productId, quantity, selectedColor, selectedSize } = req.body;
@@ -81,11 +81,11 @@ const addToCart = (req, res, next) => __awaiter(void 0, void 0, void 0, function
             return;
         }
         // Check if selected color/size is available
-        if (selectedColor && !product.colors.includes(selectedColor)) {
+        if (selectedColor && !((_b = product.colors) !== null && _b !== void 0 ? _b : []).includes(selectedColor)) {
             next(new appError_1.appError('Selected color is not available', 400));
             return;
         }
-        if (selectedSize && !product.sizes.includes(selectedSize)) {
+        if (selectedSize && !((_c = product.sizes) !== null && _c !== void 0 ? _c : []).includes(selectedSize)) {
             next(new appError_1.appError('Selected size is not available', 400));
             return;
         }

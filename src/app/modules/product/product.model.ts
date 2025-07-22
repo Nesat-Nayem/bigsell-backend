@@ -172,8 +172,8 @@ const ProductSchema: Schema = new Schema(
     timestamps: true,
     toJSON: { 
       transform: function(doc, ret) {
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         return ret;
       }
     }
@@ -188,29 +188,30 @@ ProductSchema.index({ rating: -1, reviewCount: -1 });
 
 // Virtual for calculating final price after discount
 ProductSchema.virtual('finalPrice').get(function() {
-  if (this.discount > 0) {
-    if (this.discountType === 'percentage') {
-      return this.price - (this.price * this.discount / 100);
+  if ((this as any).discount > 0) {
+    if ((this as any).discountType === 'percentage') {
+      return (this as any).price - ((this as any).price * (this as any).discount / 100);
     } else {
-      return Math.max(0, this.price - this.discount);
+      return Math.max(0, (this as any).price - (this as any).discount);
     }
   }
-  return this.price;
+  return (this as any).price;
 });
 
 // Virtual for stock status
 ProductSchema.virtual('stockStatus').get(function() {
-  if (this.stock === 0) return 'out_of_stock';
-  if (this.stock <= this.minStock) return 'low_stock';
+  if ((this as any).stock === 0) return 'out_of_stock';
+  if ((this as any).stock <= (this as any).minStock) return 'low_stock';
+  else if ((this as any).stock > 0 && (this as any).status === 'out_of_stock') return 'in_stock';
   return 'in_stock';
 });
 
 // Pre-save middleware to update status based on stock
 ProductSchema.pre('save', function(next) {
-  if (this.stock === 0 && this.status === 'active') {
-    this.status = 'out_of_stock';
-  } else if (this.stock > 0 && this.status === 'out_of_stock') {
-    this.status = 'active';
+  if ((this as any).stock === 0 && (this as any).status === 'active') {
+    (this as any).status = 'out_of_stock';
+  } else if ((this as any).stock > 0 && (this as any).status === 'out_of_stock') {
+    (this as any).status = 'active';
   }
   next();
 });

@@ -58,10 +58,10 @@ const CartSchema: Schema = new Schema(
     timestamps: true,
     toJSON: {
       transform: function(doc, ret) {
-        ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { 
+        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
-        ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { 
+        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { 
           timeZone: 'Asia/Kolkata' 
         });
         return ret;
@@ -77,17 +77,17 @@ CartSchema.index({ createdAt: -1 });
 
 // Virtual for item count
 CartSchema.virtual('itemCount').get(function() {
-  return this.items.length;
+  return (this as any).items.length;
 });
 
 // Pre-save middleware to calculate totals
 CartSchema.pre('save', function(next) {
-  if (this.items && this.items.length > 0) {
-    this.totalItems = this.items.reduce((total, item) => total + item.quantity, 0);
-    this.totalPrice = this.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+  if ((this as any).items && (this as any).items.length > 0) {
+    (this as any).totalItems = (this as any).items.reduce((total: any, item: any) => total + item.quantity, 0);
+    (this as any).totalPrice = (this as any).items.reduce((total: any, item: any) => total + (item.price * item.quantity), 0);
   } else {
-    this.totalItems = 0;
-    this.totalPrice = 0;
+    (this as any).totalItems = 0;
+    (this as any).totalPrice = 0;
   }
   next();
 });
@@ -101,7 +101,7 @@ CartSchema.statics.findUserCart = function(userId: string) {
 
 // Instance method to add item to cart
 CartSchema.methods.addItem = function(productId: string, quantity: number, price: number, selectedColor?: string, selectedSize?: string) {
-  const existingItemIndex = this.items.findIndex(
+  const existingItemIndex = (this as any).items.findIndex(
     (item: any) => 
       item.product.toString() === productId && 
       item.selectedColor === selectedColor && 
@@ -110,10 +110,10 @@ CartSchema.methods.addItem = function(productId: string, quantity: number, price
 
   if (existingItemIndex > -1) {
     // Update existing item quantity
-    this.items[existingItemIndex].quantity += quantity;
+    (this as any).items[existingItemIndex].quantity += quantity;
   } else {
     // Add new item
-    this.items.push({
+    (this as any).items.push({
       product: productId,
       quantity,
       price,
@@ -127,7 +127,7 @@ CartSchema.methods.addItem = function(productId: string, quantity: number, price
 
 // Instance method to update item quantity
 CartSchema.methods.updateItem = function(productId: string, quantity: number, selectedColor?: string, selectedSize?: string) {
-  const itemIndex = this.items.findIndex(
+  const itemIndex = (this as any).items.findIndex(
     (item: any) => 
       item.product.toString() === productId && 
       item.selectedColor === selectedColor && 
@@ -136,9 +136,9 @@ CartSchema.methods.updateItem = function(productId: string, quantity: number, se
 
   if (itemIndex > -1) {
     if (quantity <= 0) {
-      this.items.splice(itemIndex, 1);
+      (this as any).items.splice(itemIndex, 1);
     } else {
-      this.items[itemIndex].quantity = quantity;
+      (this as any).items[itemIndex].quantity = quantity;
     }
     return this.save();
   }
@@ -148,7 +148,7 @@ CartSchema.methods.updateItem = function(productId: string, quantity: number, se
 
 // Instance method to remove item from cart
 CartSchema.methods.removeItem = function(productId: string, selectedColor?: string, selectedSize?: string) {
-  this.items = this.items.filter(
+  (this as any).items = (this as any).items.filter(
     (item: any) => !(
       item.product.toString() === productId && 
       item.selectedColor === selectedColor && 
@@ -161,7 +161,7 @@ CartSchema.methods.removeItem = function(productId: string, selectedColor?: stri
 
 // Instance method to clear cart
 CartSchema.methods.clearCart = function() {
-  this.items = [];
+  (this as any).items = [];
   return this.save();
 };
 

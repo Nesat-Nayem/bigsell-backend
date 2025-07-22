@@ -11,7 +11,7 @@ export const getCart = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?._id;
+    const userId = (req as any).user?._id;
     const { populate = 'true' } = req.query;
 
     if (!userId) {
@@ -21,7 +21,7 @@ export const getCart = async (
 
     let cart;
     if (populate === 'true') {
-      cart = await Cart.findUserCart(userId);
+      cart = await (Cart as any).findUserCart(userId);
     } else {
       cart = await Cart.findOne({ user: userId, isDeleted: false });
     }
@@ -50,7 +50,7 @@ export const addToCart = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req?.user?._id;
+    const userId = (req as any)?.user?._id;
  
     const { productId, quantity, selectedColor, selectedSize } = req.body;
 
@@ -83,12 +83,12 @@ export const addToCart = async (
     }
 
     // Check if selected color/size is available
-    if (selectedColor && !product.colors.includes(selectedColor)) {
+    if (selectedColor && !(product.colors ?? []).includes(selectedColor)) {
       next(new appError('Selected color is not available', 400));
       return;
     }
 
-    if (selectedSize && !product.sizes.includes(selectedSize)) {
+    if (selectedSize && !(product.sizes ?? []).includes(selectedSize)) {
       next(new appError('Selected size is not available', 400));
       return;
     }
@@ -101,10 +101,10 @@ export const addToCart = async (
     }
 
     // Add item to cart
-    await cart.addItem(productId, quantity, product.price, selectedColor, selectedSize);
+    await (cart as any).addItem(productId, quantity, product.price, selectedColor, selectedSize);
 
     // Populate the cart with product details
-    const populatedCart = await Cart.findUserCart(userId);
+    const populatedCart = await (Cart as any).findUserCart(userId);
 
     res.status(200).json({
       success: true,
@@ -125,7 +125,7 @@ export const updateCartItem = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?._id;
+    const userId = (req as any).user?._id;
     const { productId } = req.params;
     const { quantity, selectedColor, selectedSize } = req.body;
 
@@ -166,10 +166,10 @@ export const updateCartItem = async (
     }
 
     // Update item in cart
-    await cart.updateItem(productId, quantity, selectedColor, selectedSize);
+    await (cart as any).updateItem(productId, quantity, selectedColor, selectedSize);
 
     // Get updated cart with populated data
-    const updatedCart = await Cart.findUserCart(userId);
+    const updatedCart = await (Cart as any).findUserCart(userId);
 
     res.status(200).json({
       success: true,
@@ -194,7 +194,7 @@ export const removeFromCart = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?._id;
+    const userId = (req as any).user?._id;
     const { productId } = req.params;
     const { selectedColor, selectedSize } = req.query;
 
@@ -217,10 +217,10 @@ export const removeFromCart = async (
     }
 
     // Remove item from cart
-    await cart.removeItem(productId, selectedColor as string, selectedSize as string);
+    await (cart as any).removeItem(productId, selectedColor as string, selectedSize as string);
 
     // Get updated cart with populated data
-    const updatedCart = await Cart.findUserCart(userId);
+    const updatedCart = await (Cart as any).findUserCart(userId);
 
     res.status(200).json({
       success: true,
@@ -241,7 +241,7 @@ export const clearCart = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?._id;
+    const userId = (req as any).user?._id;
 
     if (!userId) {
       next(new appError('User not authenticated', 401));
@@ -257,7 +257,7 @@ export const clearCart = async (
     }
 
     // Clear all items from cart
-    await cart.clearCart();
+    await (cart as any).clearCart();
 
     res.status(200).json({
       success: true,
@@ -284,7 +284,7 @@ export const getCartSummary = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?._id;
+    const userId = (req as any).user?._id;
 
     if (!userId) {
       next(new appError('User not authenticated', 401));
