@@ -17,7 +17,7 @@ setupSwagger(app);
 app.use('/v1/api',router)
 
 const entryRoute = (req:Request, res:Response)=>{
-    const message = 'Big sell Surver is running test...';
+    const message = 'Big sell Surver is running...';
     res.send(message)
 }
 
