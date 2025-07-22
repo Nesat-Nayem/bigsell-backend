@@ -10,6 +10,7 @@ import { TermsConditionRouter } from "../modules/terms-condition/terms-condition
 import { helpSupportRouter } from "../modules/help-support/help-support.routes";
 import { blogRouter } from "../modules/blog/blog.routes";
 import { uploadRouter } from "../modules/upload/upload.routes";
+import { productRouter } from "../modules/product/product.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -17,6 +18,7 @@ const moduleRoutes = [
     path: "/auth",
     route: authRouter,
   },
+  
 
   {
     path: "/categories",
@@ -66,6 +68,11 @@ const moduleRoutes = [
   {
     path: "/uploads",
     route: uploadRouter,
+  },
+
+  {
+    path: "/products",
+    route: productRouter,
   },
 ];
 
