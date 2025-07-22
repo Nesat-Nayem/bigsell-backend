@@ -3,7 +3,7 @@ import { authRouter } from "../modules/auth/auth.routes";
 import { categoryRouter } from "../modules/category/category.routes";
 import { bannerRouter } from "../modules/banner/banner.routes";
 import { contractRouter } from "../modules/contact/contract.routes";
-import { saveCardRouter } from "../modules/savecard/savecard.routes";
+// import { saveCardRouter } from "../modules/savecard/savecard.routes";
 import { faqRouter } from "../modules/faq/faq.routes";
 import { privacyPolicyRouter } from "../modules/privacy-policy/privacy-policy.routes";
 import { TermsConditionRouter } from "../modules/terms-condition/terms-condition.routes";
@@ -36,10 +36,10 @@ const moduleRoutes = [
     route: bannerRouter,
   },
 
-  {
-    path: "/save-cards",
-    route: saveCardRouter,
-  },
+  // {
+  //   path: "/save-cards",
+  //   route: saveCardRouter,
+  // },
 
   {
     path: "/faqs",
