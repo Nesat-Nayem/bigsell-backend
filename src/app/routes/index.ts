@@ -14,6 +14,7 @@ import { productRouter } from "../modules/product/product.routes";
 import { cartRouter } from "../modules/cart/cart.routes";
 import { orderRouter } from "../modules/order/order.routes";
 import { paymentRouter } from "../modules/payment/payment.routes";
+import { wishlistRouter } from "../modules/wishlist/wishlist.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -90,6 +91,11 @@ const moduleRoutes = [
   {
     path: "/payments",
     route: paymentRouter,
+  },
+
+  {
+    path: "/wishlist",
+    route: wishlistRouter,
   },
 ];
 
