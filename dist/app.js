@@ -18,7 +18,7 @@ app.use((0, cors_1.default)());
 // application routes
 app.use('/v1/api', routes_1.default);
 const entryRoute = (req, res) => {
-    const message = 'Surver is running...';
+    const message = 'Big sell Surver is running...';
     res.send(message);
 };
 app.get('/', entryRoute);
