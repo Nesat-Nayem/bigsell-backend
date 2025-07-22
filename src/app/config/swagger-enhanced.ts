@@ -23,6 +23,11 @@ const options: swaggerJSDoc.Options = {
         description: 'Development server',
       },
     ],
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -33,7 +38,12 @@ const options: swaggerJSDoc.Options = {
       },
     },
   },
-  apis: ['./src/routes/*.ts', './src/controllers/*.ts'],
+  apis: [
+    './src/app/modules/*/*.routes.ts',
+    './src/app/modules/*/*.controller.ts',
+    './src/app/modules/*/*.schemas.ts',
+    './src/app/routes/index.ts',
+  ],
 };
 
 const specs = swaggerJSDoc(options);
@@ -53,9 +63,18 @@ export const setupEnhancedSwagger = (app: Application): void => {
     }
     
     /* Hide default elements */
-    .swagger-ui .topbar,
-    .swagger-ui .scheme-container {
+    .swagger-ui .topbar {
       display: none !important;
+    }
+    
+    /* Keep scheme-container visible for auth */
+    .swagger-ui .scheme-container {
+      display: block !important;
+      margin: 1rem 0 !important;
+      padding: 1rem !important;
+      background: #f8fafc !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 8px !important;
     }
     
     /* Container and wrapper */

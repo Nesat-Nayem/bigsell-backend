@@ -23,6 +23,29 @@ const options: swaggerJSDoc.Options = {
         description: 'Development server',
       },
     ],
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+    tags: [
+      {
+        name: 'Authentication',
+        description: 'Authentication related endpoints',
+      },
+      {
+        name: 'Products',
+        description: 'Product management endpoints',
+      },
+      {
+        name: 'Users',
+        description: 'User management endpoints',
+      },
+      {
+        name: 'OTP',
+        description: 'OTP verification endpoints',
+      },
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -173,15 +196,16 @@ const options: swaggerJSDoc.Options = {
         },
       },
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
+    // security: [
+    //   {
+    //     bearerAuth: [],
+    //   },
+    // ],
   },
   apis: [
     './src/app/modules/*/*.routes.ts',
     './src/app/modules/*/*.controller.ts',
+    './src/app/modules/*/*.schemas.ts',
     './src/app/routes/index.ts',
   ],
 };
@@ -526,9 +550,35 @@ export const setupSwagger = (app: Application): void => {
       background: #9ca3af;
     }
     
-    /* Remove unnecessary elements */
+    /* Style the authorization section */
     .swagger-ui .scheme-container {
-      display: none;
+      display: block !important;
+      margin: 1rem 0 !important;
+      padding: 1rem !important;
+      background: #f8fafc !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 8px !important;
+    }
+    
+    .swagger-ui .auth-wrapper {
+      display: flex !important;
+      align-items: center !important;
+      gap: 1rem !important;
+    }
+    
+    .swagger-ui .authorize {
+      background: #3b82f6 !important;
+      color: white !important;
+      border: none !important;
+      padding: 0.5rem 1rem !important;
+      border-radius: 6px !important;
+      font-weight: 500 !important;
+      cursor: pointer !important;
+      transition: background-color 0.2s ease !important;
+    }
+    
+    .swagger-ui .authorize:hover {
+      background: #2563eb !important;
     }
     
     /* Custom header styling */
