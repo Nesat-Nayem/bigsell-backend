@@ -14,7 +14,7 @@ app.use(cors({
     origin: '*', // Allow all origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: false // Set to false when using origin: '*'
+    credentials: true
 }));
 
 // Handle preflight requests
