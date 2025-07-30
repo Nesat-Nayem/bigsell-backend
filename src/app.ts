@@ -8,17 +8,7 @@ import cors from 'cors';
 
 // parsers
 app.use(express.json());
-
-// CORS configuration - Allow all origins and methods for API testing
-app.use(cors({
-    origin: '*', // Allow all origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true
-}));
-
-// Handle preflight requests
-app.options('*', cors());
+app.use(cors())
 
 // swagger configuration
 setupSwagger(app);
