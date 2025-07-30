@@ -22,6 +22,11 @@ const options: swaggerJSDoc.Options = {
         url: 'http://localhost:8080',
         description: 'Development server',
       },
+
+      {
+        url: 'https://api.atpuae.com',
+        description: 'Production server',
+      },
     ],
     security: [
       {
