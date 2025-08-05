@@ -22,6 +22,10 @@ const options: swaggerJSDoc.Options = {
         url: 'http://localhost:8080',
         description: 'Development server',
       },
+      {
+        url: 'https://api.atpuae.com',
+        description: 'Production server',
+      },
     ],
     security: [
       {
@@ -481,6 +485,9 @@ export const setupEnhancedSwagger = (app: Application): void => {
   // JSON endpoint for the swagger spec
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.send(specs);
   });
 

@@ -4,15 +4,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
 const routes_1 = __importDefault(require("./app/routes"));
 const notFound_1 = __importDefault(require("./app/middlewares/notFound"));
 const globalErrorHandler_1 = __importDefault(require("./app/middlewares/globalErrorHandler"));
 const swagger_1 = require("./app/config/swagger");
 const app = (0, express_1.default)();
-const cors_1 = __importDefault(require("cors"));
+// CORS configuration
+const corsOptions = {
+    origin: [
+        'https://api.atpuae.com',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://localhost:3000',
+        'https://localhost:5173',
+        // Add any other frontend domains you want to allow
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
 // parsers
 app.use(express_1.default.json());
-app.use((0, cors_1.default)());
+app.use((0, cors_1.default)(corsOptions));
 // swagger configuration
 (0, swagger_1.setupSwagger)(app);
 // application routes
