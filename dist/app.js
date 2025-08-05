@@ -12,14 +12,7 @@ const swagger_1 = require("./app/config/swagger");
 const app = (0, express_1.default)();
 // CORS configuration
 const corsOptions = {
-    origin: [
-        'https://api.atpuae.com',
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'https://localhost:3000',
-        'https://localhost:5173',
-        // Add any other frontend domains you want to allow
-    ],
+    origin: true,
     credentials: true,
     optionsSuccessStatus: 200
 };
