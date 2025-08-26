@@ -33,45 +33,37 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Contract = void 0;
+exports.HeaderBanner = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const ContractSchema = new mongoose_1.Schema({
-    name: {
+const HeaderBannerSchema = new mongoose_1.Schema({
+    title: {
         type: String,
         required: true,
         trim: true,
     },
-    email: {
+    image: {
         type: String,
         required: true,
-        trim: true,
-        lowercase: true,
     },
-    phone: {
-        type: String,
-        required: true,
-        trim: true,
+    isActive: {
+        type: Boolean,
+        default: true,
     },
-    subject: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    message: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    status: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
+    order: {
+        type: Number,
+        default: 0,
     },
     isDeleted: {
         type: Boolean,
-        default: false
+        default: false,
     },
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform: function (doc, ret) {
+            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        },
+    },
 });
-exports.Contract = mongoose_1.default.model('Contract', ContractSchema);
+exports.HeaderBanner = mongoose_1.default.model('HeaderBanner', HeaderBannerSchema);

@@ -53,6 +53,62 @@ const options = {
                 name: 'OTP',
                 description: 'OTP verification endpoints',
             },
+            {
+                name: 'Contacts',
+                description: 'Contact messages management',
+            },
+            {
+                name: 'Help Support',
+                description: 'Help & Support content management',
+            },
+            {
+                name: 'Privacy Policy',
+                description: 'Privacy policy content management',
+            },
+            {
+                name: 'Terms & Conditions',
+                description: 'Terms & Conditions content management',
+            },
+            {
+                name: 'FAQs',
+                description: 'Frequently Asked Questions management',
+            },
+            {
+                name: 'Blogs',
+                description: 'Blog management',
+            },
+            {
+                name: 'Blog Categories',
+                description: 'Blog category management',
+            },
+            {
+                name: 'Banners',
+                description: 'Banner management',
+            },
+            {
+                name: 'Header Banners',
+                description: 'Header banner management',
+            },
+            {
+                name: 'Discount Offers',
+                description: 'Discount offer management',
+            },
+            {
+                name: 'Offer Banners',
+                description: 'Offer banner management',
+            },
+            {
+                name: 'About',
+                description: 'About page content (singleton)',
+            },
+            {
+                name: 'Footer Widgets',
+                description: 'Footer widgets management',
+            },
+            {
+                name: 'General Settings',
+                description: 'General settings (singleton) management',
+            },
         ],
         components: {
             securitySchemes: {
@@ -96,6 +152,59 @@ const options = {
                             type: 'string',
                             format: 'date-time',
                         },
+                    },
+                },
+                Contact: {
+                    type: 'object',
+                    properties: {
+                        _id: { type: 'string', description: 'Contact ID' },
+                        name: { type: 'string' },
+                        email: { type: 'string', format: 'email' },
+                        phone: { type: 'string' },
+                        subject: { type: 'string' },
+                        message: { type: 'string' },
+                        status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+                        isDeleted: { type: 'boolean' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                    },
+                },
+                ContactCreate: {
+                    type: 'object',
+                    required: ['name', 'email', 'phone', 'subject', 'message'],
+                    properties: {
+                        name: { type: 'string', example: 'John Doe' },
+                        email: { type: 'string', format: 'email', example: 'john@example.com' },
+                        phone: { type: 'string', example: '+1 555-0123' },
+                        subject: { type: 'string', example: 'Order inquiry' },
+                        message: { type: 'string', example: 'I have a question about my order.' },
+                    },
+                },
+                ContactUpdate: {
+                    type: 'object',
+                    properties: {
+                        name: { type: 'string' },
+                        email: { type: 'string', format: 'email' },
+                        phone: { type: 'string' },
+                        subject: { type: 'string' },
+                        message: { type: 'string' },
+                        status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+                    },
+                },
+                HelpSupport: {
+                    type: 'object',
+                    properties: {
+                        _id: { type: 'string' },
+                        content: { type: 'string' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                    },
+                },
+                HelpSupportUpdate: {
+                    type: 'object',
+                    required: ['content'],
+                    properties: {
+                        content: { type: 'string', example: '<p>Help and Support content goes here.</p>' },
                     },
                 },
                 Category: {

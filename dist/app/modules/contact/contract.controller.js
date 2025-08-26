@@ -15,14 +15,14 @@ const contract_validation_1 = require("./contract.validation");
 const appError_1 = require("../../errors/appError");
 const createContract = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, brandName, phoneNumber, emailAddress, message } = req.body;
+        const { name, email, phone, subject, message } = req.body;
         // Validate the input
         const validatedData = contract_validation_1.contractValidation.parse({
             name,
-            brandName,
-            phoneNumber,
-            emailAddress,
-            message
+            email,
+            phone,
+            subject,
+            message,
         });
         // Create a new contract
         const contract = new contract_model_1.Contract(validatedData);
@@ -96,7 +96,7 @@ exports.getContractById = getContractById;
 const updateContractById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const contractId = req.params.id;
-        const { name, brandName, phoneNumber, emailAddress, message, status } = req.body;
+        const { name, email, phone, subject, message, status } = req.body;
         // Find the contract to update
         const contract = yield contract_model_1.Contract.findOne({
             _id: contractId,
@@ -110,12 +110,12 @@ const updateContractById = (req, res, next) => __awaiter(void 0, void 0, void 0,
         const updateData = {};
         if (name !== undefined)
             updateData.name = name;
-        if (brandName !== undefined)
-            updateData.brandName = brandName;
-        if (phoneNumber !== undefined)
-            updateData.phoneNumber = phoneNumber;
-        if (emailAddress !== undefined)
-            updateData.emailAddress = emailAddress;
+        if (email !== undefined)
+            updateData.email = email;
+        if (phone !== undefined)
+            updateData.phone = phone;
+        if (subject !== undefined)
+            updateData.subject = subject;
         if (message !== undefined)
             updateData.message = message;
         if (status !== undefined)

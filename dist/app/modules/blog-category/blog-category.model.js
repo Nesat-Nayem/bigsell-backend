@@ -33,45 +33,31 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Contract = void 0;
+exports.BlogCategory = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const ContractSchema = new mongoose_1.Schema({
-    name: {
+const BlogCategorySchema = new mongoose_1.Schema({
+    categoryName: {
         type: String,
         required: true,
         trim: true,
-    },
-    email: {
-        type: String,
-        required: true,
-        trim: true,
-        lowercase: true,
-    },
-    phone: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    subject: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    message: {
-        type: String,
-        required: true,
-        trim: true,
+        unique: true,
     },
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
+        enum: ['Active', 'Inactive'],
+        default: 'Active',
     },
     isDeleted: {
         type: Boolean,
-        default: false
+        default: false,
     },
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform: function (doc, ret) {
+            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        },
+    },
 });
-exports.Contract = mongoose_1.default.model('Contract', ContractSchema);
+exports.BlogCategory = mongoose_1.default.model('BlogCategory', BlogCategorySchema);

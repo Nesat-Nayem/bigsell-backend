@@ -70,7 +70,7 @@ exports.getBlogById = getBlogById;
 const createBlog = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     try {
-        const { title, shortDesc, longDesc, status } = req.body;
+        const { title, shortDesc, longDesc, status, category } = req.body;
         // Check if blog with same title already exists
         const existingBlog = yield blog_model_1.Blog.findOne({ title, isDeleted: false });
         if (existingBlog) {
@@ -90,6 +90,7 @@ const createBlog = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
             shortDesc,
             longDesc,
             image,
+            category,
             status: status === 'Active' || status === true || status === 'true' ? 'Active' : 'Inactive'
         });
         // Create a new blog
@@ -120,7 +121,7 @@ const updateBlog = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
     var _a, _b, _c;
     try {
         const { id } = req.params;
-        const { title, shortDesc, longDesc, status } = req.body;
+        const { title, shortDesc, longDesc, status, category } = req.body;
         // Find blog
         const blog = yield blog_model_1.Blog.findOne({ _id: id, isDeleted: false });
         if (!blog) {
@@ -140,6 +141,7 @@ const updateBlog = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
             title: title || blog.title,
             shortDesc: shortDesc || blog.shortDesc,
             longDesc: longDesc || blog.longDesc,
+            category: category || blog.category,
             status: status === 'Active' || status === true || status === 'true' ? 'Active' : 'Inactive'
         };
         // If image is uploaded

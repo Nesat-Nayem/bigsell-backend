@@ -7,6 +7,7 @@ exports.blogValidation = zod_1.z.object({
     shortDesc: zod_1.z.string().min(1, 'Short description is required'),
     longDesc: zod_1.z.string().min(1, 'Long description is required'),
     image: zod_1.z.string().min(1, 'Image is required'),
+    category: zod_1.z.string().min(1, 'Category is required'),
     status: zod_1.z.enum(['Active', 'Inactive']).default('Active')
 });
 exports.updateBlogValidation = zod_1.z.object({
@@ -14,5 +15,6 @@ exports.updateBlogValidation = zod_1.z.object({
     shortDesc: zod_1.z.string().min(1, 'Short description is required').optional(),
     longDesc: zod_1.z.string().min(1, 'Long description is required').optional(),
     image: zod_1.z.string().min(1, 'Image is required').optional(),
+    category: zod_1.z.string().optional(),
     status: zod_1.z.enum(['Active', 'Inactive']).optional()
 });

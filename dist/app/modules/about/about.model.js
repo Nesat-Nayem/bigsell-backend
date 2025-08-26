@@ -33,48 +33,42 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Blog = void 0;
+exports.About = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const BlogSchema = new mongoose_1.Schema({
-    title: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    shortDesc: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    longDesc: {
-        type: String,
-        required: true
-    },
-    image: {
-        type: String,
-        required: true
-    },
-    category: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    status: {
-        type: String,
-        enum: ['Active', 'Inactive'],
-        default: 'Active'
-    },
-    isDeleted: {
-        type: Boolean,
-        default: false
-    }
+const AboutUsSchema = new mongoose_1.Schema({
+    image: { type: String, default: '' },
+    title: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
+    url: { type: String, default: '' },
+}, { _id: false });
+const CounterSchema = new mongoose_1.Schema({
+    happyCustomers: { type: Number, default: 0 },
+    electronicsProducts: { type: Number, default: 0 },
+    activeSalesman: { type: Number, default: 0 },
+    storeWorldwide: { type: Number, default: 0 },
+}, { _id: false });
+const AboutInfoSchema = new mongoose_1.Schema({
+    image: { type: String, default: '' },
+    title: { type: String, default: '' },
+    description: { type: String, default: '' },
+}, { _id: false });
+const WhyChooseItemSchema = new mongoose_1.Schema({
+    image: { type: String, default: '' },
+    title: { type: String, default: '' },
+    shortDesc: { type: String, default: '' },
+}, { _id: false });
+const AboutSchema = new mongoose_1.Schema({
+    aboutUs: { type: AboutUsSchema, default: {} },
+    counter: { type: CounterSchema, default: {} },
+    aboutInfo: { type: AboutInfoSchema, default: {} },
+    whyChooseUs: { type: [WhyChooseItemSchema], default: [] },
 }, {
     timestamps: true,
     toJSON: {
         transform: function (doc, ret) {
             ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
             ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        }
-    }
+        },
+    },
 });
-exports.Blog = mongoose_1.default.model('Blog', BlogSchema);
+exports.About = mongoose_1.default.model('About', AboutSchema);

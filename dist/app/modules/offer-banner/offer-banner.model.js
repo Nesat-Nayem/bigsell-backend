@@ -33,45 +33,22 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Contract = void 0;
+exports.OfferBanner = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const ContractSchema = new mongoose_1.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    email: {
-        type: String,
-        required: true,
-        trim: true,
-        lowercase: true,
-    },
-    phone: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    subject: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    message: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    status: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
-    },
-    isDeleted: {
-        type: Boolean,
-        default: false
-    },
+const OfferBannerSchema = new mongoose_1.Schema({
+    title: { type: String, required: true, trim: true },
+    subtitle: { type: String, required: true, trim: true },
+    offer: { type: String, required: true, trim: true },
+    url: { type: String, required: true, trim: true },
+    image: { type: String, required: true },
+    isDeleted: { type: Boolean, default: false },
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform: function (doc, ret) {
+            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        },
+    },
 });
-exports.Contract = mongoose_1.default.model('Contract', ContractSchema);
+exports.OfferBanner = mongoose_1.default.model('OfferBanner', OfferBannerSchema);
