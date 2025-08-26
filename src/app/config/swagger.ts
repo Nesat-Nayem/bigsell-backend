@@ -58,6 +58,14 @@ const options: swaggerJSDoc.Options = {
         name: 'Help Support',
         description: 'Help & Support content management',
       },
+      {
+        name: 'Privacy Policy',
+        description: 'Privacy policy content management',
+      },
+      {
+        name: 'Terms & Conditions',
+        description: 'Terms & Conditions content management',
+      },
     ],
     components: {
       securitySchemes: {
