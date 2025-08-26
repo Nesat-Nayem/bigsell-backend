@@ -9,15 +9,15 @@ export const createContract = async (
   next: NextFunction
 ) => {
   try {
-    const { name, brandName, phoneNumber, emailAddress, message } = req.body;
+    const { name, email, phone, subject, message } = req.body;
     
     // Validate the input
     const validatedData = contractValidation.parse({ 
-      name, 
-      brandName, 
-      phoneNumber, 
-      emailAddress, 
-      message
+      name,
+      email,
+      phone,
+      subject,
+      message,
     });
 
     // Create a new contract
@@ -108,7 +108,7 @@ export const updateContractById = async (
 ) => {
   try {
     const contractId = req.params.id;
-    const { name, brandName, phoneNumber, emailAddress, message, status } = req.body;
+    const { name, email, phone, subject, message, status } = req.body;
     
     // Find the contract to update
     const contract = await Contract.findOne({ 
@@ -125,9 +125,9 @@ export const updateContractById = async (
     const updateData: any = {};
     
     if (name !== undefined) updateData.name = name;
-    if (brandName !== undefined) updateData.brandName = brandName;
-    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
-    if (emailAddress !== undefined) updateData.emailAddress = emailAddress;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (subject !== undefined) updateData.subject = subject;
     if (message !== undefined) updateData.message = message;
     if (status !== undefined) updateData.status = status;
 

@@ -3,30 +3,31 @@ import { IContract } from './contract.interface';
 
 const ContractSchema: Schema = new Schema(
   {
-    name: { 
-      type: String, 
+    name: {
+      type: String,
       required: true,
-      trim: true
+      trim: true,
     },
-    brandName: { 
-      type: String, 
+    email: {
+      type: String,
       required: true,
-      trim: true
+      trim: true,
+      lowercase: true,
     },
-    phoneNumber: { 
-      type: String, 
+    phone: {
+      type: String,
       required: true,
-      trim: true
+      trim: true,
     },
-    emailAddress: { 
-      type: String, 
+    subject: {
+      type: String,
       required: true,
-      trim: true
+      trim: true,
     },
-    message: { 
-      type: String, 
+    message: {
+      type: String,
       required: true,
-      trim: true
+      trim: true,
     },
     status: { 
       type: String, 

@@ -2,9 +2,9 @@ import { Document } from 'mongoose';
 
 export interface IContract extends Document {
   name: string;
-  brandName: string;
-  phoneNumber: string;
-  emailAddress: string;
+  email: string;
+  phone: string;
+  subject: string;
   message: string;
   status: 'pending' | 'approved' | 'rejected';
   isDeleted: boolean;

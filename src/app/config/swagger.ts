@@ -50,6 +50,10 @@ const options: swaggerJSDoc.Options = {
         name: 'OTP',
         description: 'OTP verification endpoints',
       },
+      {
+        name: 'Contacts',
+        description: 'Contact messages management',
+      },
     ],
     components: {
       securitySchemes: {
@@ -93,6 +97,43 @@ const options: swaggerJSDoc.Options = {
               type: 'string',
               format: 'date-time',
             },
+          },
+        },
+        Contact: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', description: 'Contact ID' },
+            name: { type: 'string' },
+            email: { type: 'string', format: 'email' },
+            phone: { type: 'string' },
+            subject: { type: 'string' },
+            message: { type: 'string' },
+            status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+            isDeleted: { type: 'boolean' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        ContactCreate: {
+          type: 'object',
+          required: ['name', 'email', 'phone', 'subject', 'message'],
+          properties: {
+            name: { type: 'string', example: 'John Doe' },
+            email: { type: 'string', format: 'email', example: 'john@example.com' },
+            phone: { type: 'string', example: '+1 555-0123' },
+            subject: { type: 'string', example: 'Order inquiry' },
+            message: { type: 'string', example: 'I have a question about my order.' },
+          },
+        },
+        ContactUpdate: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            email: { type: 'string', format: 'email' },
+            phone: { type: 'string' },
+            subject: { type: 'string' },
+            message: { type: 'string' },
+            status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
           },
         },
         Category: {
