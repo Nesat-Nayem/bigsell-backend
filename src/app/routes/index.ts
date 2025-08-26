@@ -9,6 +9,7 @@ import { privacyPolicyRouter } from "../modules/privacy-policy/privacy-policy.ro
 import { TermsConditionRouter } from "../modules/terms-condition/terms-condition.routes";
 import { helpSupportRouter } from "../modules/help-support/help-support.routes";
 import { blogRouter } from "../modules/blog/blog.routes";
+import { blogCategoryRouter } from "../modules/blog-category/blog-category.routes";
 import { uploadRouter } from "../modules/upload/upload.routes";
 import { productRouter } from "../modules/product/product.routes";
 import { cartRouter } from "../modules/cart/cart.routes";
@@ -62,6 +63,11 @@ const moduleRoutes = [
   {
     path: "/help-support",
     route: helpSupportRouter,
+  },
+
+  {
+    path: "/blog-categories",
+    route: blogCategoryRouter,
   },
 
   {

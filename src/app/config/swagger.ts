@@ -70,6 +70,14 @@ const options: swaggerJSDoc.Options = {
         name: 'FAQs',
         description: 'Frequently Asked Questions management',
       },
+      {
+        name: 'Blogs',
+        description: 'Blog management',
+      },
+      {
+        name: 'Blog Categories',
+        description: 'Blog category management',
+      },
     ],
     components: {
       securitySchemes: {

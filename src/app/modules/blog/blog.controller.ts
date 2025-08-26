@@ -75,7 +75,7 @@ export const createBlog = async (
   next: NextFunction
 ) => {
   try {
-    const { title, shortDesc, longDesc, status } = req.body;
+    const { title, shortDesc, longDesc, status, category } = req.body;
     
     // Check if blog with same title already exists
     const existingBlog = await Blog.findOne({ title, isDeleted: false });
@@ -99,6 +99,7 @@ export const createBlog = async (
       shortDesc,
       longDesc,
       image,
+      category,
       status: status === 'Active' || status === true || status === 'true' ? 'Active' : 'Inactive'
     });
 
@@ -133,7 +134,7 @@ export const updateBlog = async (
 ) => {
   try {
     const { id } = req.params;
-    const { title, shortDesc, longDesc, status } = req.body;
+    const { title, shortDesc, longDesc, status, category } = req.body;
     
     // Find blog
     const blog = await Blog.findOne({ _id: id, isDeleted: false });
@@ -157,6 +158,7 @@ export const updateBlog = async (
       title: title || blog.title,
       shortDesc: shortDesc || blog.shortDesc,
       longDesc: longDesc || blog.longDesc,
+      category: category || blog.category,
       status: status === 'Active' || status === true || status === 'true' ? 'Active' : 'Inactive'
     };
 

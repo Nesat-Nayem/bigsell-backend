@@ -5,6 +5,7 @@ export interface IBlog extends Document {
   shortDesc: string;
   longDesc: string;
   image: string;
+  category: string;
   status: 'Active' | 'Inactive';
   isDeleted: boolean;
   createdAt: Date;

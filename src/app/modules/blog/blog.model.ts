@@ -21,6 +21,11 @@ const BlogSchema: Schema = new Schema(
       type: String,
       required: true
     },
+    category: {
+      type: String,
+      required: true,
+      trim: true
+    },
     status: {
       type: String,
       enum: ['Active', 'Inactive'],
