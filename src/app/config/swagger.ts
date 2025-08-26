@@ -66,6 +66,10 @@ const options: swaggerJSDoc.Options = {
         name: 'Terms & Conditions',
         description: 'Terms & Conditions content management',
       },
+      {
+        name: 'FAQs',
+        description: 'Frequently Asked Questions management',
+      },
     ],
     components: {
       securitySchemes: {
