@@ -102,6 +102,10 @@ const options: swaggerJSDoc.Options = {
         name: 'Footer Widgets',
         description: 'Footer widgets management',
       },
+      {
+        name: 'General Settings',
+        description: 'General settings (singleton) management',
+      },
     ],
     components: {
       securitySchemes: {

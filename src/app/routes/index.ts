@@ -21,6 +21,7 @@ import { paymentRouter } from "../modules/payment/payment.routes";
 import { wishlistRouter } from "../modules/wishlist/wishlist.routes";
 import { aboutRouter } from "../modules/about/about.routes";
 import { footerWidgetRouter } from "../modules/footer-widget/footer-widget.routes";
+import { generalSettingsRouter } from "../modules/general-settings/general-settings.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -68,6 +69,11 @@ const moduleRoutes = [
   {
     path: "/footer-widgets",
     route: footerWidgetRouter,
+  },
+
+  {
+    path: "/general-settings",
+    route: generalSettingsRouter,
   },
 
   // {
