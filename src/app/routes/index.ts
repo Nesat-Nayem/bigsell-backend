@@ -12,6 +12,7 @@ import { blogRouter } from "../modules/blog/blog.routes";
 import { blogCategoryRouter } from "../modules/blog-category/blog-category.routes";
 import { headerBannerRouter } from "../modules/header-banner/header-banner.routes";
 import { discountOfferRouter } from "../modules/discount-offer/discount-offer.routes";
+import { offerBannerRouter } from "../modules/offer-banner/offer-banner.routes";
 import { uploadRouter } from "../modules/upload/upload.routes";
 import { productRouter } from "../modules/product/product.routes";
 import { cartRouter } from "../modules/cart/cart.routes";
@@ -50,6 +51,11 @@ const moduleRoutes = [
   {
     path: "/discount-offers",
     route: discountOfferRouter,
+  },
+
+  {
+    path: "/offer-banners",
+    route: offerBannerRouter,
   },
 
   // {

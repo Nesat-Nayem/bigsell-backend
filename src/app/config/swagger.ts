@@ -90,6 +90,10 @@ const options: swaggerJSDoc.Options = {
         name: 'Discount Offers',
         description: 'Discount offer management',
       },
+      {
+        name: 'Offer Banners',
+        description: 'Offer banner management',
+      },
     ],
     components: {
       securitySchemes: {
