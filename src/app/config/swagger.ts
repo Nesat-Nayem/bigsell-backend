@@ -54,6 +54,10 @@ const options: swaggerJSDoc.Options = {
         name: 'Contacts',
         description: 'Contact messages management',
       },
+      {
+        name: 'Help Support',
+        description: 'Help & Support content management',
+      },
     ],
     components: {
       securitySchemes: {
@@ -134,6 +138,22 @@ const options: swaggerJSDoc.Options = {
             subject: { type: 'string' },
             message: { type: 'string' },
             status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+          },
+        },
+        HelpSupport: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            content: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        HelpSupportUpdate: {
+          type: 'object',
+          required: ['content'],
+          properties: {
+            content: { type: 'string', example: '<p>Help and Support content goes here.</p>' },
           },
         },
         Category: {
