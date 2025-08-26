@@ -25,6 +25,14 @@ const router = express.Router();
  *         isDeleted: { type: boolean }
  *         createdAt: { type: string, format: date-time }
  *         updatedAt: { type: string, format: date-time }
+ *       example:
+ *         _id: "66cfb6a7a3b2f1d234567890"
+ *         title: "Mega Festive Sale"
+ *         offer: "Up to 50% OFF on all electronics"
+ *         image: "https://res.cloudinary.com/demo/image/upload/v1724660000/discounts/festive.jpg"
+ *         isDeleted: false
+ *         createdAt: "2025-08-26 10:00:00"
+ *         updatedAt: "2025-08-26 10:00:00"
  *     DiscountOfferResponse:
  *       type: object
  *       properties:
@@ -104,6 +112,15 @@ router.get('/:id', getDiscountOfferById);
  *               title: { type: string }
  *               offer: { type: string }
  *               image: { type: string, format: binary }
+ *           encoding:
+ *             image:
+ *               contentType: image/png, image/jpeg
+ *           examples:
+ *             Example 1:
+ *               summary: Create discount offer
+ *               value:
+ *                 title: "Weekend Bonanza"
+ *                 offer: "Flat 30% OFF on home appliances"
  *     responses:
  *       201:
  *         description: Created
@@ -138,6 +155,12 @@ router.post('/', auth('admin'), upload.single('image'), createDiscountOffer);
  *               title: { type: string }
  *               offer: { type: string }
  *               image: { type: string, format: binary }
+ *           examples:
+ *             Example 1:
+ *               summary: Update text only
+ *               value:
+ *                 title: "Weekend Bonanza Extended"
+ *                 offer: "Flat 35% OFF on home appliances"
  *     responses:
  *       200:
  *         description: OK

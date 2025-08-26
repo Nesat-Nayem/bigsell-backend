@@ -27,6 +27,16 @@ const router = express.Router();
  *         isDeleted: { type: boolean }
  *         createdAt: { type: string, format: date-time }
  *         updatedAt: { type: string, format: date-time }
+ *       example:
+ *         _id: "66d0a1f1f2c3a4b5c6d7e8f9"
+ *         title: "Back To School Deals"
+ *         subtitle: "Top picks for students"
+ *         offer: "Save up to 40% on laptops"
+ *         url: "https://example.com/deals/back-to-school"
+ *         image: "https://res.cloudinary.com/demo/image/upload/v1724661000/offer-banners/bts.jpg"
+ *         isDeleted: false
+ *         createdAt: "2025-08-26 10:15:00"
+ *         updatedAt: "2025-08-26 10:15:00"
  *     OfferBannerResponse:
  *       type: object
  *       properties:
@@ -108,6 +118,17 @@ router.get('/:id', getOfferBannerById);
  *               offer: { type: string }
  *               url: { type: string }
  *               image: { type: string, format: binary }
+ *           encoding:
+ *             image:
+ *               contentType: image/png, image/jpeg
+ *           examples:
+ *             Default:
+ *               summary: Create an offer banner
+ *               value:
+ *                 title: "Back To School Deals"
+ *                 subtitle: "Top picks for students"
+ *                 offer: "Save up to 40% on laptops"
+ *                 url: "https://example.com/deals/back-to-school"
  *     responses:
  *       201:
  *         description: Created
@@ -144,6 +165,14 @@ router.post('/', auth('admin'), upload.single('image'), createOfferBanner);
  *               offer: { type: string }
  *               url: { type: string }
  *               image: { type: string, format: binary }
+ *           examples:
+ *             TextOnly:
+ *               summary: Update text fields only
+ *               value:
+ *                 title: "Back To School Super Deals"
+ *                 subtitle: "Best picks for campus life"
+ *                 offer: "Save up to 45% on laptops"
+ *                 url: "https://example.com/deals/back-to-school"
  *     responses:
  *       200:
  *         description: OK
