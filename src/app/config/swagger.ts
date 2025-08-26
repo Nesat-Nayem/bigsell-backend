@@ -98,6 +98,10 @@ const options: swaggerJSDoc.Options = {
         name: 'About',
         description: 'About page content (singleton)',
       },
+      {
+        name: 'Footer Widgets',
+        description: 'Footer widgets management',
+      },
     ],
     components: {
       securitySchemes: {

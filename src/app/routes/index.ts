@@ -20,6 +20,7 @@ import { orderRouter } from "../modules/order/order.routes";
 import { paymentRouter } from "../modules/payment/payment.routes";
 import { wishlistRouter } from "../modules/wishlist/wishlist.routes";
 import { aboutRouter } from "../modules/about/about.routes";
+import { footerWidgetRouter } from "../modules/footer-widget/footer-widget.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -62,6 +63,11 @@ const moduleRoutes = [
   {
     path: "/about",
     route: aboutRouter,
+  },
+
+  {
+    path: "/footer-widgets",
+    route: footerWidgetRouter,
   },
 
   // {
