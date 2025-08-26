@@ -78,6 +78,14 @@ const options: swaggerJSDoc.Options = {
         name: 'Blog Categories',
         description: 'Blog category management',
       },
+      {
+        name: 'Banners',
+        description: 'Banner management',
+      },
+      {
+        name: 'Header Banners',
+        description: 'Header banner management',
+      },
     ],
     components: {
       securitySchemes: {
