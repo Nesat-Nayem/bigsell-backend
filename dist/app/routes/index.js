@@ -8,6 +8,10 @@ const contract_routes_1 = require("../modules/contact/contract.routes");
 // import { saveCardRouter } from "../modules/savecard/savecard.routes";
 const faq_routes_1 = require("../modules/faq/faq.routes");
 const privacy_policy_routes_1 = require("../modules/privacy-policy/privacy-policy.routes");
+const shipping_policy_routes_1 = require("../modules/shipping-policy/shipping-policy.routes");
+const payment_policy_routes_1 = require("../modules/payment-policy/payment-policy.routes");
+const disclaimer_routes_1 = require("../modules/disclaimer/disclaimer.routes");
+const site_security_routes_1 = require("../modules/site-security/site-security.routes");
 const terms_condition_routes_1 = require("../modules/terms-condition/terms-condition.routes");
 const help_support_routes_1 = require("../modules/help-support/help-support.routes");
 const blog_routes_1 = require("../modules/blog/blog.routes");
@@ -77,6 +81,22 @@ const moduleRoutes = [
     {
         path: "/privacy-policy",
         route: privacy_policy_routes_1.privacyPolicyRouter,
+    },
+    {
+        path: "/shipping-policy",
+        route: shipping_policy_routes_1.shippingPolicyRouter,
+    },
+    {
+        path: "/payment-policy",
+        route: payment_policy_routes_1.paymentPolicyRouter,
+    },
+    {
+        path: "/disclaimer",
+        route: disclaimer_routes_1.disclaimerRouter,
+    },
+    {
+        path: "/site-security",
+        route: site_security_routes_1.siteSecurityRouter,
     },
     {
         path: "/terms-conditions",
