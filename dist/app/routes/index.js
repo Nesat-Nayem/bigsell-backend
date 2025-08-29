@@ -22,6 +22,7 @@ const offer_banner_routes_1 = require("../modules/offer-banner/offer-banner.rout
 const upload_routes_1 = require("../modules/upload/upload.routes");
 const product_routes_1 = require("../modules/product/product.routes");
 const cart_routes_1 = require("../modules/cart/cart.routes");
+const vendor_policy_routes_1 = require("../modules/vendor-policy/vendor-policy.routes");
 const order_routes_1 = require("../modules/order/order.routes");
 const payment_routes_1 = require("../modules/payment/payment.routes");
 const wishlist_routes_1 = require("../modules/wishlist/wishlist.routes");
@@ -97,6 +98,10 @@ const moduleRoutes = [
     {
         path: "/site-security",
         route: site_security_routes_1.siteSecurityRouter,
+    },
+    {
+        path: "/vendor-policy",
+        route: vendor_policy_routes_1.vendorPolicyRouter,
     },
     {
         path: "/terms-conditions",
