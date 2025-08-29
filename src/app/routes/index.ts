@@ -6,6 +6,10 @@ import { contractRouter } from "../modules/contact/contract.routes";
 // import { saveCardRouter } from "../modules/savecard/savecard.routes";
 import { faqRouter } from "../modules/faq/faq.routes";
 import { privacyPolicyRouter } from "../modules/privacy-policy/privacy-policy.routes";
+import { shippingPolicyRouter } from "../modules/shipping-policy/shipping-policy.routes";
+import { paymentPolicyRouter } from "../modules/payment-policy/payment-policy.routes";
+import { disclaimerRouter } from "../modules/disclaimer/disclaimer.routes";
+import { siteSecurityRouter } from "../modules/site-security/site-security.routes";
 import { TermsConditionRouter } from "../modules/terms-condition/terms-condition.routes";
 import { helpSupportRouter } from "../modules/help-support/help-support.routes";
 import { blogRouter } from "../modules/blog/blog.routes";
@@ -89,6 +93,26 @@ const moduleRoutes = [
   {
     path: "/privacy-policy",
     route: privacyPolicyRouter,
+  },
+
+  {
+    path: "/shipping-policy",
+    route: shippingPolicyRouter,
+  },
+
+  {
+    path: "/payment-policy",
+    route: paymentPolicyRouter,
+  },
+
+  {
+    path: "/disclaimer",
+    route: disclaimerRouter,
+  },
+
+  {
+    path: "/site-security",
+    route: siteSecurityRouter,
   },
 
   {
