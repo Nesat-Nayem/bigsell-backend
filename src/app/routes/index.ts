@@ -20,6 +20,7 @@ import { offerBannerRouter } from "../modules/offer-banner/offer-banner.routes";
 import { uploadRouter } from "../modules/upload/upload.routes";
 import { productRouter } from "../modules/product/product.routes";
 import { cartRouter } from "../modules/cart/cart.routes";
+import { vendorPolicyRouter } from "../modules/vendor-policy/vendor-policy.routes";
 import { orderRouter } from "../modules/order/order.routes";
 import { paymentRouter } from "../modules/payment/payment.routes";
 import { wishlistRouter } from "../modules/wishlist/wishlist.routes";
@@ -113,6 +114,11 @@ const moduleRoutes = [
   {
     path: "/site-security",
     route: siteSecurityRouter,
+  },
+
+  {
+    path: "/vendor-policy",
+    route: vendorPolicyRouter,
   },
 
   {
