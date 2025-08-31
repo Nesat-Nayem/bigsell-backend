@@ -11,6 +11,7 @@ import {
   getProductsByCategory,
   searchProducts,
   getProductFilters,
+  getProductBySlug,
 } from './product.controller';
 import { auth } from '../../middlewares/authMiddleware';
 
@@ -276,6 +277,9 @@ router.get('/new-arrivals', getNewArrivalProducts);
  *               $ref: '#/components/schemas/ProductFiltersResponse'
  */
 router.get('/filters', getProductFilters);
+
+// Get product by slug
+router.get('/slug/:slug', getProductBySlug);
 
 /**
  * @swagger

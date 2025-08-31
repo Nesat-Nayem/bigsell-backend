@@ -2,6 +2,7 @@ import { Document } from 'mongoose';
 
 export interface IProduct extends Document {
   name: string;
+  slug?: string;
   description: string;
   shortDescription?: string;
   price: number;

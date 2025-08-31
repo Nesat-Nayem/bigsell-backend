@@ -5,6 +5,14 @@ import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
 
 // Create a new product
+const slugify = (text: string) =>
+  text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+
 export const createProduct = async (
   req: Request,
   res: Response,
@@ -20,6 +28,18 @@ export const createProduct = async (
       return;
     }
 
+    // Generate slug if not provided
+    if (!productData.slug && productData.name) {
+      let base = slugify(productData.name);
+      let candidate = base;
+      let i = 1;
+      // Ensure uniqueness
+      while (await Product.findOne({ slug: candidate })) {
+        candidate = `${base}-${i++}`;
+      }
+      productData.slug = candidate;
+    }
+
     const result = await Product.create(productData);
     const populatedResult = await Product.findById(result._id).populate('category', 'title');
 
@@ -28,6 +48,36 @@ export const createProduct = async (
       statusCode: 201,
       message: 'Product created successfully',
       data: populatedResult,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get single product by slug
+export const getProductBySlug = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { slug } = req.params as { slug: string };
+
+    const product = await Product.findOne({ slug, isDeleted: false })
+      .populate('category', 'title')
+      .lean();
+
+    if (!product) {
+      next(new appError('Product not found', 404));
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Product retrieved successfully',
+      data: product,
     });
     return;
   } catch (error) {
@@ -212,6 +262,26 @@ export const updateProduct = async (
         next(new appError('Product with this SKU already exists', 400));
         return;
       }
+    }
+
+    // Handle slug regeneration if name changed and no explicit slug provided
+    if (!updateData.slug && updateData.name && updateData.name !== existingProduct.name) {
+      let base = slugify(updateData.name);
+      let candidate = base;
+      let i = 1;
+      while (await Product.findOne({ slug: candidate, _id: { $ne: id } })) {
+        candidate = `${base}-${i++}`;
+      }
+      updateData.slug = candidate;
+    } else if (updateData.slug) {
+      // If slug provided, ensure it's unique
+      let base = slugify(updateData.slug);
+      let candidate = base;
+      let i = 1;
+      while (await Product.findOne({ slug: candidate, _id: { $ne: id } })) {
+        candidate = `${base}-${i++}`;
+      }
+      updateData.slug = candidate;
     }
 
     const result = await Product.findByIdAndUpdate(
