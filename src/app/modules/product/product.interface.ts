@@ -36,6 +36,9 @@ export interface IProduct extends Document {
   isFeatured: boolean;
   isTrending: boolean;
   isNewArrival: boolean;
+  isDiscount: boolean;
+  isWeeklyBestSelling: boolean;
+  isWeeklyDiscount: boolean;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
@@ -62,6 +65,9 @@ export interface IProductFilter {
   isFeatured?: boolean;
   isTrending?: boolean;
   isNewArrival?: boolean;
+  isDiscount?: boolean;
+  isWeeklyBestSelling?: boolean;
+  isWeeklyDiscount?: boolean;
   colors?: string[];
   sizes?: string[];
   rating?: number;

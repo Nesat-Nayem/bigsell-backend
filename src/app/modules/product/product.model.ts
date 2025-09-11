@@ -147,6 +147,21 @@ const ProductSchema: Schema = new Schema(
       default: false,
       index: true
     },
+    isDiscount: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    isWeeklyBestSelling: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    isWeeklyDiscount: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     seoTitle: { 
       type: String,
       trim: true

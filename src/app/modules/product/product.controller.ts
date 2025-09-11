@@ -55,6 +55,99 @@ export const createProduct = async (
   }
 };
 
+// Get discount products
+export const getDiscountProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const products = await Product.find({
+      isDiscount: true,
+      status: 'active',
+      isDeleted: false,
+    })
+      .populate('category', 'title')
+      .sort({ discount: -1, createdAt: -1 })
+      .limit(Number(limit))
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Discount products retrieved successfully',
+      data: products,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get weekly best selling products
+export const getWeeklyBestSellingProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const products = await Product.find({
+      isWeeklyBestSelling: true,
+      status: 'active',
+      isDeleted: false,
+    })
+      .populate('category', 'title')
+      .sort({ reviewCount: -1, rating: -1 })
+      .limit(Number(limit))
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Weekly best selling products retrieved successfully',
+      data: products,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get weekly discount products
+export const getWeeklyDiscountProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const products = await Product.find({
+      isWeeklyDiscount: true,
+      status: 'active',
+      isDeleted: false,
+    })
+      .populate('category', 'title')
+      .sort({ discount: -1, createdAt: -1 })
+      .limit(Number(limit))
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Weekly discount products retrieved successfully',
+      data: products,
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get single product by slug
 export const getProductBySlug = async (
   req: Request,
@@ -107,6 +200,9 @@ export const getAllProducts = async (
       isFeatured,
       isTrending,
       isNewArrival,
+      isDiscount,
+      isWeeklyBestSelling,
+      isWeeklyDiscount,
       colors,
       sizes,
       rating,
@@ -123,6 +219,9 @@ export const getAllProducts = async (
     if (isFeatured !== undefined) filter.isFeatured = isFeatured === 'true';
     if (isTrending !== undefined) filter.isTrending = isTrending === 'true';
     if (isNewArrival !== undefined) filter.isNewArrival = isNewArrival === 'true';
+    if (isDiscount !== undefined) filter.isDiscount = isDiscount === 'true';
+    if (isWeeklyBestSelling !== undefined) filter.isWeeklyBestSelling = isWeeklyBestSelling === 'true';
+    if (isWeeklyDiscount !== undefined) filter.isWeeklyDiscount = isWeeklyDiscount === 'true';
     if (inStock !== undefined) {
       filter.stock = inStock === 'true' ? { $gt: 0 } : 0;
     }
