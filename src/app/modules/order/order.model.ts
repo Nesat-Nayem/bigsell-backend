@@ -150,6 +150,11 @@ const OrderSchema: Schema = new Schema(
       required: true,
       unique: true,
       trim: true,
+      default: function() {
+        const timestamp = Date.now().toString();
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        return `ORD-${timestamp}-${random}`;
+      },
     },
     user: {
       type: Schema.Types.ObjectId,
@@ -297,14 +302,8 @@ OrderSchema.index({ orderDate: -1 });
 OrderSchema.index({ user: 1, status: 1 });
 OrderSchema.index({ user: 1, isDeleted: 1 });
 
-// Generate unique order number
+// Generate timestamps and status history updates
 OrderSchema.pre('save', async function(next) {
-  if (this.isNew && !this.orderNumber) {
-    const timestamp = Date.now().toString();
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    this.orderNumber = `ORD-${timestamp}-${random}`;
-  }
-  
   // Add status to history if status changed
   if (this.isModified('status') && !this.isNew) {
     (this as any).statusHistory.push({

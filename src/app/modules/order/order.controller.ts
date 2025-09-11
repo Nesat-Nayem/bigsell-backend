@@ -12,12 +12,36 @@ export const createOrder = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req as any).user?._id;
-    const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode } = req.body;
+    const actingUser = (req as any).user;
+    const {
+      items,
+      shippingAddress,
+      billingAddress,
+      paymentMethod,
+      shippingMethod,
+      notes,
+      couponCode,
+      user: requestedUserId,
+    } = req.body as any;
 
-    if (!userId) {
+    if (!actingUser?._id) {
       next(new appError('User not authenticated', 401));
       return;
+    }
+
+    // Determine which user the order should be created for
+    let userId = actingUser._id;
+    if (requestedUserId) {
+      // Only admin can create order on behalf of another user (POS flow)
+      if (actingUser.role !== 'admin') {
+        next(new appError('Only admin can specify user for order creation', 403));
+        return;
+      }
+      if (!mongoose.Types.ObjectId.isValid(requestedUserId)) {
+        next(new appError('Invalid user ID', 400));
+        return;
+      }
+      userId = requestedUserId;
     }
 
     // Validate and process order items
@@ -263,7 +287,7 @@ export const getOrderById = async (
 ) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?._id;
     const userRole = (req as any).user?.role;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -309,7 +333,7 @@ export const updateOrderStatus = async (
   try {
     const { id } = req.params;
     const { status, note, trackingNumber, estimatedDelivery } = req.body;
-    const adminId = (req as any).user?.userId;
+    const adminId = (req as any).user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       next(new appError('Invalid order ID', 400));
@@ -358,7 +382,7 @@ export const cancelOrder = async (
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?._id;
     const userRole = (req as any).user?.role;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -423,7 +447,7 @@ export const returnOrder = async (
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?._id;
     const userRole = (req as any).user?.role;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {

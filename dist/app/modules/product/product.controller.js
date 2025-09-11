@@ -12,11 +12,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getProductFilters = exports.searchProducts = exports.getProductsByCategory = exports.getNewArrivalProducts = exports.getTrendingProducts = exports.getFeaturedProducts = exports.deleteProduct = exports.updateProduct = exports.getProductById = exports.getAllProducts = exports.createProduct = void 0;
+exports.getProductFilters = exports.searchProducts = exports.getProductsByCategory = exports.getNewArrivalProducts = exports.getTrendingProducts = exports.getFeaturedProducts = exports.deleteProduct = exports.updateProduct = exports.getProductById = exports.getAllProducts = exports.getProductBySlug = exports.getWeeklyDiscountProducts = exports.getWeeklyBestSellingProducts = exports.getDiscountProducts = exports.createProduct = void 0;
 const product_model_1 = require("./product.model");
 const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
 // Create a new product
+const slugify = (text) => text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
 const createProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const productData = req.body;
@@ -25,6 +31,17 @@ const createProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, func
         if (existingSku) {
             next(new appError_1.appError('Product with this SKU already exists', 400));
             return;
+        }
+        // Generate slug if not provided
+        if (!productData.slug && productData.name) {
+            let base = slugify(productData.name);
+            let candidate = base;
+            let i = 1;
+            // Ensure uniqueness
+            while (yield product_model_1.Product.findOne({ slug: candidate })) {
+                candidate = `${base}-${i++}`;
+            }
+            productData.slug = candidate;
         }
         const result = yield product_model_1.Product.create(productData);
         const populatedResult = yield product_model_1.Product.findById(result._id).populate('category', 'title');
@@ -41,10 +58,112 @@ const createProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.createProduct = createProduct;
+// Get discount products
+const getDiscountProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isDiscount: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ discount: -1, createdAt: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Discount products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getDiscountProducts = getDiscountProducts;
+// Get weekly best selling products
+const getWeeklyBestSellingProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isWeeklyBestSelling: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ reviewCount: -1, rating: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Weekly best selling products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getWeeklyBestSellingProducts = getWeeklyBestSellingProducts;
+// Get weekly discount products
+const getWeeklyDiscountProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { limit = 10 } = req.query;
+        const products = yield product_model_1.Product.find({
+            isWeeklyDiscount: true,
+            status: 'active',
+            isDeleted: false,
+        })
+            .populate('category', 'title')
+            .sort({ discount: -1, createdAt: -1 })
+            .limit(Number(limit))
+            .lean();
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Weekly discount products retrieved successfully',
+            data: products,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getWeeklyDiscountProducts = getWeeklyDiscountProducts;
+// Get single product by slug
+const getProductBySlug = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { slug } = req.params;
+        const product = yield product_model_1.Product.findOne({ slug, isDeleted: false })
+            .populate('category', 'title')
+            .lean();
+        if (!product) {
+            next(new appError_1.appError('Product not found', 404));
+            return;
+        }
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Product retrieved successfully',
+            data: product,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getProductBySlug = getProductBySlug;
 // Get all products with filtering, sorting, and pagination
 const getAllProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', category, subcategory, brand, minPrice, maxPrice, inStock, status = 'active', isFeatured, isTrending, isNewArrival, colors, sizes, rating, search, } = req.query;
+        const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', category, subcategory, brand, minPrice, maxPrice, inStock, status = 'active', isFeatured, isTrending, isNewArrival, isDiscount, isWeeklyBestSelling, isWeeklyDiscount, colors, sizes, rating, search, } = req.query;
         // Build filter object
         const filter = { isDeleted: false };
         if (status)
@@ -61,6 +180,12 @@ const getAllProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
             filter.isTrending = isTrending === 'true';
         if (isNewArrival !== undefined)
             filter.isNewArrival = isNewArrival === 'true';
+        if (isDiscount !== undefined)
+            filter.isDiscount = isDiscount === 'true';
+        if (isWeeklyBestSelling !== undefined)
+            filter.isWeeklyBestSelling = isWeeklyBestSelling === 'true';
+        if (isWeeklyDiscount !== undefined)
+            filter.isWeeklyDiscount = isWeeklyDiscount === 'true';
         if (inStock !== undefined) {
             filter.stock = inStock === 'true' ? { $gt: 0 } : 0;
         }
@@ -179,6 +304,26 @@ const updateProduct = (req, res, next) => __awaiter(void 0, void 0, void 0, func
                 next(new appError_1.appError('Product with this SKU already exists', 400));
                 return;
             }
+        }
+        // Handle slug regeneration if name changed and no explicit slug provided
+        if (!updateData.slug && updateData.name && updateData.name !== existingProduct.name) {
+            let base = slugify(updateData.name);
+            let candidate = base;
+            let i = 1;
+            while (yield product_model_1.Product.findOne({ slug: candidate, _id: { $ne: id } })) {
+                candidate = `${base}-${i++}`;
+            }
+            updateData.slug = candidate;
+        }
+        else if (updateData.slug) {
+            // If slug provided, ensure it's unique
+            let base = slugify(updateData.slug);
+            let candidate = base;
+            let i = 1;
+            while (yield product_model_1.Product.findOne({ slug: candidate, _id: { $ne: id } })) {
+                candidate = `${base}-${i++}`;
+            }
+            updateData.slug = candidate;
         }
         const result = yield product_model_1.Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate('category', 'title');
         res.status(200).json({

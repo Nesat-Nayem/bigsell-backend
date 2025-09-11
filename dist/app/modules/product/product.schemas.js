@@ -148,6 +148,18 @@
  *           type: boolean
  *           description: Whether product is new arrival
  *           example: true
+ *         isDiscount:
+ *           type: boolean
+ *           description: Whether product is in discount group
+ *           example: false
+ *         isWeeklyBestSelling:
+ *           type: boolean
+ *           description: Whether product is marked as weekly best selling
+ *           example: false
+ *         isWeeklyDiscount:
+ *           type: boolean
+ *           description: Whether product is marked for weekly discount
+ *           example: false
  *         seoTitle:
  *           type: string
  *           description: SEO title
@@ -345,6 +357,18 @@
  *           type: boolean
  *           description: Whether product is new arrival
  *           example: true
+ *         isDiscount:
+ *           type: boolean
+ *           description: Whether product is in discount group
+ *           example: false
+ *         isWeeklyBestSelling:
+ *           type: boolean
+ *           description: Whether product is marked as weekly best selling
+ *           example: false
+ *         isWeeklyDiscount:
+ *           type: boolean
+ *           description: Whether product is marked for weekly discount
+ *           example: false
  *         seoTitle:
  *           type: string
  *           maxLength: 60
@@ -520,6 +544,18 @@
  *           type: boolean
  *           description: Whether product is new arrival
  *           example: true
+ *         isDiscount:
+ *           type: boolean
+ *           description: Whether product is in discount group
+ *           example: false
+ *         isWeeklyBestSelling:
+ *           type: boolean
+ *           description: Whether product is marked as weekly best selling
+ *           example: false
+ *         isWeeklyDiscount:
+ *           type: boolean
+ *           description: Whether product is marked for weekly discount
+ *           example: false
  *         seoTitle:
  *           type: string
  *           maxLength: 60

@@ -321,6 +321,10 @@
  *           enum: [card, cash_on_delivery, bank_transfer, digital_wallet]
  *           description: Payment method
  *           example: "cash_on_delivery"
+ *         user:
+ *           type: string
+ *           description: User ID placing the order (Admin/POS only). If omitted, the authenticated user will be used.
+ *           example: "64f8a1b2c3d4e5f6g7h8i9j0"
  *         shippingMethod:
  *           type: string
  *           description: Shipping method

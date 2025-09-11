@@ -29,6 +29,7 @@ export const createOrderValidation = z.object({
     shippingAddress: shippingAddressValidation,
     billingAddress: shippingAddressValidation.optional(),
     paymentMethod: z.enum(['card', 'cash_on_delivery', 'bank_transfer', 'digital_wallet']),
+    user: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID').optional(),
     shippingMethod: z.string().min(1, 'Shipping method is required'),
     notes: z.string().max(500, 'Notes too long').optional(),
     couponCode: z.string().optional(),

@@ -42,6 +42,13 @@ const ProductSchema = new mongoose_1.Schema({
         trim: true,
         index: true
     },
+    slug: {
+        type: String,
+        unique: true,
+        sparse: true,
+        index: true,
+        trim: true
+    },
     description: {
         type: String,
         required: true
@@ -169,6 +176,21 @@ const ProductSchema = new mongoose_1.Schema({
         index: true
     },
     isNewArrival: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    isDiscount: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    isWeeklyBestSelling: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    isWeeklyDiscount: {
         type: Boolean,
         default: false,
         index: true

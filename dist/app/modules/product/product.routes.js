@@ -115,6 +115,21 @@ router.post('/', (0, authMiddleware_1.auth)('admin'), product_controller_1.creat
  *           type: boolean
  *         description: Filter new arrival products
  *       - in: query
+ *         name: isDiscount
+ *         schema:
+ *           type: boolean
+ *         description: Filter discount products
+ *       - in: query
+ *         name: isWeeklyBestSelling
+ *         schema:
+ *           type: boolean
+ *         description: Filter weekly best selling products
+ *       - in: query
+ *         name: isWeeklyDiscount
+ *         schema:
+ *           type: boolean
+ *         description: Filter weekly discount products
+ *       - in: query
  *         name: colors
  *         schema:
  *           type: string
@@ -249,6 +264,72 @@ router.get('/trending', product_controller_1.getTrendingProducts);
 router.get('/new-arrivals', product_controller_1.getNewArrivalProducts);
 /**
  * @swagger
+ * /v1/api/products/discount:
+ *   get:
+ *     summary: Get discount products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products to return
+ *     responses:
+ *       200:
+ *         description: Discount products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductsResponse'
+ */
+router.get('/discount', product_controller_1.getDiscountProducts);
+/**
+ * @swagger
+ * /v1/api/products/weekly-best-selling:
+ *   get:
+ *     summary: Get weekly best selling products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products to return
+ *     responses:
+ *       200:
+ *         description: Weekly best selling products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductsResponse'
+ */
+router.get('/weekly-best-selling', product_controller_1.getWeeklyBestSellingProducts);
+/**
+ * @swagger
+ * /v1/api/products/weekly-discount:
+ *   get:
+ *     summary: Get weekly discount products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products to return
+ *     responses:
+ *       200:
+ *         description: Weekly discount products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductsResponse'
+ */
+router.get('/weekly-discount', product_controller_1.getWeeklyDiscountProducts);
+/**
+ * @swagger
  * /v1/api/products/filters:
  *   get:
  *     summary: Get available product filters
@@ -262,6 +343,8 @@ router.get('/new-arrivals', product_controller_1.getNewArrivalProducts);
  *               $ref: '#/components/schemas/ProductFiltersResponse'
  */
 router.get('/filters', product_controller_1.getProductFilters);
+// Get product by slug
+router.get('/slug/:slug', product_controller_1.getProductBySlug);
 /**
  * @swagger
  * /v1/api/products/category/{categoryId}:

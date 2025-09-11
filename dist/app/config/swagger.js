@@ -46,6 +46,10 @@ const options = {
                 description: 'Product management endpoints',
             },
             {
+                name: 'Orders',
+                description: 'Order management endpoints',
+            },
+            {
                 name: 'Users',
                 description: 'User management endpoints',
             },

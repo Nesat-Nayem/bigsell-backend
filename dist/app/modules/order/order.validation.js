@@ -29,6 +29,7 @@ exports.createOrderValidation = zod_1.z.object({
         shippingAddress: shippingAddressValidation,
         billingAddress: shippingAddressValidation.optional(),
         paymentMethod: zod_1.z.enum(['card', 'cash_on_delivery', 'bank_transfer', 'digital_wallet']),
+        user: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID').optional(),
         shippingMethod: zod_1.z.string().min(1, 'Shipping method is required'),
         notes: zod_1.z.string().max(500, 'Notes too long').optional(),
         couponCode: zod_1.z.string().optional(),

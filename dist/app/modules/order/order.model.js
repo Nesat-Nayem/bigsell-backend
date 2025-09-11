@@ -188,6 +188,11 @@ const OrderSchema = new mongoose_1.Schema({
         required: true,
         unique: true,
         trim: true,
+        default: function () {
+            const timestamp = Date.now().toString();
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            return `ORD-${timestamp}-${random}`;
+        },
     },
     user: {
         type: mongoose_1.Schema.Types.ObjectId,
@@ -323,14 +328,9 @@ OrderSchema.index({ paymentStatus: 1 });
 OrderSchema.index({ orderDate: -1 });
 OrderSchema.index({ user: 1, status: 1 });
 OrderSchema.index({ user: 1, isDeleted: 1 });
-// Generate unique order number
+// Generate timestamps and status history updates
 OrderSchema.pre('save', function (next) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (this.isNew && !this.orderNumber) {
-            const timestamp = Date.now().toString();
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-            this.orderNumber = `ORD-${timestamp}-${random}`;
-        }
         // Add status to history if status changed
         if (this.isModified('status') && !this.isNew) {
             this.statusHistory.push({

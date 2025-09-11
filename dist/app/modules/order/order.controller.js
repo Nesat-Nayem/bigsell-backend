@@ -20,13 +20,26 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
 // Create new order
 const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
-        const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode } = req.body;
-        if (!userId) {
+        const actingUser = req.user;
+        const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode, user: requestedUserId, } = req.body;
+        if (!(actingUser === null || actingUser === void 0 ? void 0 : actingUser._id)) {
             next(new appError_1.appError('User not authenticated', 401));
             return;
+        }
+        // Determine which user the order should be created for
+        let userId = actingUser._id;
+        if (requestedUserId) {
+            // Only admin can create order on behalf of another user (POS flow)
+            if (actingUser.role !== 'admin') {
+                next(new appError_1.appError('Only admin can specify user for order creation', 403));
+                return;
+            }
+            if (!mongoose_1.default.Types.ObjectId.isValid(requestedUserId)) {
+                next(new appError_1.appError('Invalid user ID', 400));
+                return;
+            }
+            userId = requestedUserId;
         }
         // Validate and process order items
         const orderItems = [];
@@ -241,7 +254,7 @@ const getOrderById = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
     var _a, _b;
     try {
         const { id } = req.params;
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
         const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             next(new appError_1.appError('Invalid order ID', 400));
@@ -279,7 +292,7 @@ const updateOrderStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, 
     try {
         const { id } = req.params;
         const { status, note, trackingNumber, estimatedDelivery } = req.body;
-        const adminId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const adminId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             next(new appError_1.appError('Invalid order ID', 400));
             return;
@@ -320,7 +333,7 @@ const cancelOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     try {
         const { id } = req.params;
         const { reason } = req.body;
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
         const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             next(new appError_1.appError('Invalid order ID', 400));
@@ -370,7 +383,7 @@ const returnOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     try {
         const { id } = req.params;
         const { reason } = req.body;
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
         const userRole = (_b = req.user) === null || _b === void 0 ? void 0 : _b.role;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             next(new appError_1.appError('Invalid order ID', 400));

@@ -113,6 +113,8 @@ export interface ICreateOrderRequest {
   shippingAddress: IShippingAddress;
   billingAddress?: IShippingAddress;
   paymentMethod: 'card' | 'cash_on_delivery' | 'bank_transfer' | 'digital_wallet';
+  // Optional: Only admins can set user different from themselves 
+  user?: string;
   shippingMethod: string;
   notes?: string;
   couponCode?: string;
