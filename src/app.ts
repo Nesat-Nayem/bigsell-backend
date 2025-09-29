@@ -41,9 +41,9 @@ const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// CORS is handled by Nginx proxy - disabled to avoid duplicate headers
-// app.use(cors(corsOptions));
-// app.options("*", cors(corsOptions));
+// CORS middleware - Apply before other middlewares (enabled for admin compatibility)
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // Body parsers
 app.use(express.json({ limit: "50mb" }));
