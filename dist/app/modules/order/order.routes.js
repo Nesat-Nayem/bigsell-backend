@@ -48,7 +48,7 @@ const router = express_1.default.Router();
  *       404:
  *         description: Product not found
  */
-router.post('/', (0, authMiddleware_1.auth)(), order_controller_1.createOrder);
+router.post("/", (0, authMiddleware_1.auth)("user"), order_controller_1.createOrder);
 /**
  * @swagger
  * /v1/api/orders/my-orders:
@@ -110,7 +110,7 @@ router.post('/', (0, authMiddleware_1.auth)(), order_controller_1.createOrder);
  *       401:
  *         description: Unauthorized
  */
-router.get('/my-orders', (0, authMiddleware_1.auth)(), order_controller_1.getUserOrders);
+router.get("/my-orders", (0, authMiddleware_1.auth)("user"), order_controller_1.getUserOrders);
 /**
  * @swagger
  * /v1/api/orders:
@@ -174,7 +174,7 @@ router.get('/my-orders', (0, authMiddleware_1.auth)(), order_controller_1.getUse
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/', (0, authMiddleware_1.auth)('admin'), order_controller_1.getAllOrders);
+router.get("/", (0, authMiddleware_1.auth)("admin"), order_controller_1.getAllOrders);
 /**
  * @swagger
  * /v1/api/orders/{id}:
@@ -214,7 +214,13 @@ router.get('/', (0, authMiddleware_1.auth)('admin'), order_controller_1.getAllOr
  *       404:
  *         description: Order not found
  */
-router.get('/:id', (0, authMiddleware_1.auth)(), order_controller_1.getOrderById);
+// Place summary BEFORE parameterized routes to avoid capture by "/:id"
+router.get("/summary", (0, authMiddleware_1.auth)("admin"), order_controller_1.getOrderSummary);
+// Vendor-specific summary
+router.get("/summary/vendor", (0, authMiddleware_1.auth)("vendor"), order_controller_1.getVendorOrderSummary);
+// Vendor orders: list orders that include vendor's products
+router.get("/vendor", (0, authMiddleware_1.auth)("vendor"), order_controller_1.getVendorOrders);
+router.get("/:id", (0, authMiddleware_1.auth)(), order_controller_1.getOrderById);
 /**
  * @swagger
  * /v1/api/orders/{id}/status:
@@ -264,7 +270,7 @@ router.get('/:id', (0, authMiddleware_1.auth)(), order_controller_1.getOrderById
  *       404:
  *         description: Order not found
  */
-router.put('/:id/status', (0, authMiddleware_1.auth)('admin'), order_controller_1.updateOrderStatus);
+router.put("/:id/status", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.updateOrderStatus);
 /**
  * @swagger
  * /v1/api/orders/{id}/cancel:
@@ -319,7 +325,7 @@ router.put('/:id/status', (0, authMiddleware_1.auth)('admin'), order_controller_
  *       404:
  *         description: Order not found
  */
-router.put('/:id/cancel', (0, authMiddleware_1.auth)('user'), order_controller_1.cancelOrder);
+router.put("/:id/cancel", (0, authMiddleware_1.auth)("user"), order_controller_1.cancelOrder);
 /**
  * @swagger
  * /v1/api/orders/{id}/return:
@@ -374,7 +380,7 @@ router.put('/:id/cancel', (0, authMiddleware_1.auth)('user'), order_controller_1
  *       404:
  *         description: Order not found
  */
-router.put('/:id/return', (0, authMiddleware_1.auth)('user'), order_controller_1.returnOrder);
+router.put("/:id/return", (0, authMiddleware_1.auth)("user"), order_controller_1.returnOrder);
 /**
  * @swagger
  * /v1/api/orders/{id}/payment:
@@ -422,7 +428,7 @@ router.put('/:id/return', (0, authMiddleware_1.auth)('user'), order_controller_1
  *       404:
  *         description: Order not found
  */
-router.put('/:id/payment', (0, authMiddleware_1.auth)('admin'), order_controller_1.updatePaymentStatus);
+router.put("/:id/payment", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.updatePaymentStatus);
 /**
  * @swagger
  * /v1/api/orders/summary:
@@ -455,5 +461,5 @@ router.put('/:id/payment', (0, authMiddleware_1.auth)('admin'), order_controller
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/summary', (0, authMiddleware_1.auth)('admin'), order_controller_1.getOrderSummary);
+// (moved above)
 exports.orderRouter = router;

@@ -1,13 +1,13 @@
-import express from 'express';
-import { 
-  createCategory, 
-  getAllCategories, 
-  getCategoryById, 
-  updateCategoryById, 
-  deleteCategoryById 
-} from './category.controller';
-import { upload } from '../../config/cloudinary';
-import { auth } from '../../middlewares/authMiddleware';
+import express from "express";
+import {
+  createCategory,
+  getAllCategories,
+  getCategoryById,
+  updateCategoryById,
+  deleteCategoryById,
+} from "./category.controller";
+import { upload } from "../../config/cloudinary";
+import { auth } from "../../middlewares/authMiddleware";
 
 const router = express.Router();
 
@@ -63,7 +63,12 @@ const router = express.Router();
  *       409:
  *         description: Category already exists
  */
-router.post('/', auth('admin'), upload.single('image'), createCategory);
+router.post(
+  "/",
+  auth("admin", "vendor"),
+  upload.single("image"),
+  createCategory
+);
 
 /**
  * @swagger
@@ -121,7 +126,7 @@ router.post('/', auth('admin'), upload.single('image'), createCategory);
  *                   items:
  *                     $ref: '#/components/schemas/Category'
  */
-router.get('/', getAllCategories);
+router.get("/", getAllCategories);
 
 /**
  * @swagger
@@ -158,7 +163,7 @@ router.get('/', getAllCategories);
  *       404:
  *         description: Category not found
  */
-router.get('/:id', getCategoryById);
+router.get("/:id", getCategoryById);
 
 /**
  * @swagger
@@ -216,7 +221,12 @@ router.get('/:id', getCategoryById);
  *       404:
  *         description: Category not found
  */
-router.put('/:id', auth('admin'), upload.single('image'), updateCategoryById);
+router.put(
+  "/:id",
+  auth("admin", "vendor"),
+  upload.single("image"),
+  updateCategoryById
+);
 
 /**
  * @swagger
@@ -255,6 +265,6 @@ router.put('/:id', auth('admin'), upload.single('image'), updateCategoryById);
  *       404:
  *         description: Category not found
  */
-router.delete('/:id', auth('admin'), deleteCategoryById);
+router.delete("/:id", auth("admin", "vendor"), deleteCategoryById);
 
 export const categoryRouter = router;

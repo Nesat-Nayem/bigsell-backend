@@ -2,17 +2,38 @@ import mongoose from 'mongoose';
 import app from './app'; 
 import config from './app/config';
 
-async function main(){
-    try{
+// For Vercel deployment, we need to handle database connection differently
+let isConnected = false;
+
+async function connectDB() {
+    if (isConnected) {
+        return;
+    }
+    
+    try {
         await mongoose.connect(config.database_url as string);
-
-        app.listen(config.port, ()=>{
-            console.log(`restaurant server is running on ports ${config.port}`)
-        })
-
-    }catch(err){
-        console.log(err)
+        isConnected = true;
+        console.log('Database connected successfully');
+    } catch (err) {
+        console.log('Database connection error:', err);
+        throw err;
     }
 }
 
-main();
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+    const port = config.port || 3000;
+    connectDB().then(() => {
+        app.listen(port, () => {
+            console.log(`Server is running on port ${port}`);
+        });
+    }).catch((err) => {
+        console.log('Failed to start server:', err);
+    });
+} else {
+    // Connect to database on module initialization for Vercel/production
+    connectDB();
+}
+
+// For Vercel deployment - export the app directly
+module.exports = app;

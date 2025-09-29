@@ -1,218 +1,240 @@
-import mongoose, { Schema } from 'mongoose';
-import { IProduct } from './product.interface';
+import mongoose, { Schema } from "mongoose";
+import { IProduct } from "./product.interface";
 
 const ProductSchema: Schema = new Schema(
   {
-    name: { 
-      type: String, 
+    name: {
+      type: String,
       required: true,
       trim: true,
-      index: true
+      index: true,
     },
     slug: {
       type: String,
       unique: true,
       sparse: true,
       index: true,
-      trim: true
+      trim: true,
     },
-    description: { 
-      type: String, 
-      required: true 
-    },
-    shortDescription: { 
+    description: {
       type: String,
-      trim: true
-    },
-    price: { 
-      type: Number, 
       required: true,
-      min: 0
     },
-    originalPrice: { 
+    shortDescription: {
+      type: String,
+      trim: true,
+    },
+    price: {
       type: Number,
-      min: 0
+      required: true,
+      min: 0,
     },
-    discount: { 
+    originalPrice: {
+      type: Number,
+      min: 0,
+    },
+    discount: {
       type: Number,
       min: 0,
       max: 100,
-      default: 0
+      default: 0,
     },
-    discountType: { 
+    discountType: {
       type: String,
-      enum: ['percentage', 'fixed'],
-      default: 'percentage'
+      enum: ["percentage", "fixed"],
+      default: "percentage",
     },
-    sku: { 
-      type: String, 
+    sku: {
+      type: String,
       required: true,
       unique: true,
       trim: true,
-      index: true
+      index: true,
     },
-    category: { 
+    category: {
       type: Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "ProductCategory",
       required: true,
-      index: true
+      index: true,
     },
-    subcategory: { 
-      type: String,
-      trim: true
+    subcategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      required: false,
+      index: true,
     },
-    brand: { 
+    brand: {
       type: String,
       trim: true,
-      index: true
+      index: true,
     },
-    images: [{ 
+    images: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+    thumbnail: {
       type: String,
-      required: true
-    }],
-    thumbnail: { 
-      type: String, 
-      required: true 
+      required: true,
+      default: "",
     },
-    stock: { 
-      type: Number, 
+    stock: {
+      type: Number,
       required: true,
       min: 0,
-      default: 0
+      default: 0,
     },
-    minStock: { 
+    minStock: {
       type: Number,
       min: 0,
-      default: 5
+      default: 5,
     },
-    weight: { 
+    weight: {
       type: Number,
-      min: 0
+      min: 0,
     },
     dimensions: {
       length: { type: Number, min: 0 },
       width: { type: Number, min: 0 },
-      height: { type: Number, min: 0 }
+      height: { type: Number, min: 0 },
     },
-    colors: [{ 
-      type: String,
-      trim: true
-    }],
-    sizes: [{ 
-      type: String,
-      trim: true
-    }],
-    tags: [{ 
-      type: String,
-      trim: true,
-      index: true
-    }],
-    features: [{ 
-      type: String,
-      trim: true
-    }],
+    colors: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    sizes: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    tags: [
+      {
+        type: String,
+        trim: true,
+        index: true,
+      },
+    ],
+    features: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     specifications: {
       type: Map,
-      of: String
+      of: String,
     },
-    rating: { 
+    rating: {
       type: Number,
       min: 0,
       max: 5,
-      default: 0
+      default: 0,
     },
-    reviewCount: { 
+    reviewCount: {
       type: Number,
       min: 0,
-      default: 0
+      default: 0,
     },
-    status: { 
+    status: {
       type: String,
-      enum: ['active', 'inactive', 'out_of_stock', 'discontinued'],
-      default: 'active',
-      index: true
+      enum: ["active", "inactive", "out_of_stock", "discontinued"],
+      default: "active",
+      index: true,
     },
-    isFeatured: { 
-      type: Boolean, 
+    isFeatured: {
+      type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
-    isTrending: { 
-      type: Boolean, 
+    isTrending: {
+      type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
-    isNewArrival: { 
-      type: Boolean, 
+    isNewArrival: {
+      type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
     isDiscount: {
       type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
     isWeeklyBestSelling: {
       type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
     isWeeklyDiscount: {
       type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
-    seoTitle: { 
+    seoTitle: {
       type: String,
-      trim: true
+      trim: true,
     },
-    seoDescription: { 
+    seoDescription: {
       type: String,
-      trim: true
+      trim: true,
     },
-    seoKeywords: [{ 
-      type: String,
-      trim: true
-    }],
-    vendor: { 
+    seoKeywords: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    vendor: {
       type: Schema.Types.ObjectId,
-      ref: 'User'
+      ref: "User",
     },
     shippingInfo: {
       weight: { type: Number, min: 0 },
       freeShipping: { type: Boolean, default: false },
       shippingCost: { type: Number, min: 0, default: 0 },
-      estimatedDelivery: { type: String, trim: true }
+      estimatedDelivery: { type: String, trim: true },
     },
-    isDeleted: { 
-      type: Boolean, 
+    isDeleted: {
+      type: Boolean,
       default: false,
-      index: true
-    }
+      index: true,
+    },
   },
-  { 
+  {
     timestamps: true,
-    toJSON: { 
-      transform: function(doc, ret) {
-        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    toJSON: {
+      transform: function (doc, ret) {
+        (ret as any).createdAt = new Date(
+          (ret as any).createdAt
+        ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+        (ret as any).updatedAt = new Date(
+          (ret as any).updatedAt
+        ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
         return ret;
-      }
-    }
+      },
+    },
   }
 );
 
 // Indexes for better query performance
-ProductSchema.index({ name: 'text', description: 'text', tags: 'text' });
+ProductSchema.index({ name: "text", description: "text", tags: "text" });
 ProductSchema.index({ price: 1, category: 1 });
 ProductSchema.index({ createdAt: -1 });
 ProductSchema.index({ rating: -1, reviewCount: -1 });
 
 // Virtual for calculating final price after discount
-ProductSchema.virtual('finalPrice').get(function() {
+ProductSchema.virtual("finalPrice").get(function () {
   if ((this as any).discount > 0) {
-    if ((this as any).discountType === 'percentage') {
-      return (this as any).price - ((this as any).price * (this as any).discount / 100);
+    if ((this as any).discountType === "percentage") {
+      return (
+        (this as any).price -
+        ((this as any).price * (this as any).discount) / 100
+      );
     } else {
       return Math.max(0, (this as any).price - (this as any).discount);
     }
@@ -221,21 +243,25 @@ ProductSchema.virtual('finalPrice').get(function() {
 });
 
 // Virtual for stock status
-ProductSchema.virtual('stockStatus').get(function() {
-  if ((this as any).stock === 0) return 'out_of_stock';
-  if ((this as any).stock <= (this as any).minStock) return 'low_stock';
-  else if ((this as any).stock > 0 && (this as any).status === 'out_of_stock') return 'in_stock';
-  return 'in_stock';
+ProductSchema.virtual("stockStatus").get(function () {
+  if ((this as any).stock === 0) return "out_of_stock";
+  if ((this as any).stock <= (this as any).minStock) return "low_stock";
+  else if ((this as any).stock > 0 && (this as any).status === "out_of_stock")
+    return "in_stock";
+  return "in_stock";
 });
 
 // Pre-save middleware to update status based on stock
-ProductSchema.pre('save', function(next) {
-  if ((this as any).stock === 0 && (this as any).status === 'active') {
-    (this as any).status = 'out_of_stock';
-  } else if ((this as any).stock > 0 && (this as any).status === 'out_of_stock') {
-    (this as any).status = 'active';
+ProductSchema.pre("save", function (next) {
+  if ((this as any).stock === 0 && (this as any).status === "active") {
+    (this as any).status = "out_of_stock";
+  } else if (
+    (this as any).stock > 0 &&
+    (this as any).status === "out_of_stock"
+  ) {
+    (this as any).status = "active";
   }
   next();
 });
 
-export const Product = mongoose.model<IProduct>('Product', ProductSchema);
+export const Product = mongoose.model<IProduct>("Product", ProductSchema);

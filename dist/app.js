@@ -11,23 +11,37 @@ const globalErrorHandler_1 = __importDefault(require("./app/middlewares/globalEr
 const swagger_1 = require("./app/config/swagger");
 const app = (0, express_1.default)();
 // CORS configuration
+const getAllowedOrigins = () => {
+    // Default development origins
+    const defaultOrigins = ["*"];
+    // Production origins
+    const productionOrigins = ["*"];
+    // Environment-based origins
+    const envOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
+        : [];
+    // Combine all origins
+    return [...defaultOrigins, ...productionOrigins, ...envOrigins];
+};
 const corsOptions = {
     origin: true,
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
 };
-// parsers
-app.use(express_1.default.json());
+// CORS middleware - Apply before other middlewares
 app.use((0, cors_1.default)(corsOptions));
+// Body parsers
+app.use(express_1.default.json({ limit: "50mb" }));
+app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));
 // swagger configuration
 (0, swagger_1.setupSwagger)(app);
 // application routes
-app.use('/v1/api', routes_1.default);
+app.use("/v1/api", routes_1.default);
 const entryRoute = (req, res) => {
-    const message = 'Big sell Surver is running...';
+    const message = "Big sell Surver is running...";
     res.send(message);
 };
-app.get('/', entryRoute);
+app.get("/", entryRoute);
 //Not Found
 app.use(notFound_1.default);
 app.use(globalErrorHandler_1.default);

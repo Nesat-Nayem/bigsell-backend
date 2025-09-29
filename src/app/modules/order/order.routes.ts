@@ -1,4 +1,4 @@
-import express from 'express';
+import express from "express";
 import {
   createOrder,
   getUserOrders,
@@ -9,8 +9,10 @@ import {
   returnOrder,
   updatePaymentStatus,
   getOrderSummary,
-} from './order.controller';
-import { auth } from '../../middlewares/authMiddleware';
+  getVendorOrders,
+  getVendorOrderSummary,
+} from "./order.controller";
+import { auth } from "../../middlewares/authMiddleware";
 
 const router = express.Router();
 
@@ -54,8 +56,7 @@ const router = express.Router();
  *       404:
  *         description: Product not found
  */
-router.post('/', auth(), createOrder);
-
+router.post("/", auth("user"), createOrder);
 /**
  * @swagger
  * /v1/api/orders/my-orders:
@@ -117,7 +118,7 @@ router.post('/', auth(), createOrder);
  *       401:
  *         description: Unauthorized
  */
-router.get('/my-orders', auth(), getUserOrders);
+router.get("/my-orders", auth("user"), getUserOrders);
 
 /**
  * @swagger
@@ -182,7 +183,7 @@ router.get('/my-orders', auth(), getUserOrders);
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/', auth('admin'), getAllOrders);
+router.get("/", auth("admin"), getAllOrders);
 
 /**
  * @swagger
@@ -223,7 +224,15 @@ router.get('/', auth('admin'), getAllOrders);
  *       404:
  *         description: Order not found
  */
-router.get('/:id', auth(), getOrderById);
+// Place summary BEFORE parameterized routes to avoid capture by "/:id"
+router.get("/summary", auth("admin"), getOrderSummary);
+// Vendor-specific summary
+router.get("/summary/vendor", auth("vendor"), getVendorOrderSummary);
+
+// Vendor orders: list orders that include vendor's products
+router.get("/vendor", auth("vendor"), getVendorOrders);
+
+router.get("/:id", auth(), getOrderById);
 
 /**
  * @swagger
@@ -274,7 +283,7 @@ router.get('/:id', auth(), getOrderById);
  *       404:
  *         description: Order not found
  */
-router.put('/:id/status', auth('admin'), updateOrderStatus);
+router.put("/:id/status", auth("admin", "vendor"), updateOrderStatus);
 
 /**
  * @swagger
@@ -330,7 +339,7 @@ router.put('/:id/status', auth('admin'), updateOrderStatus);
  *       404:
  *         description: Order not found
  */
-router.put('/:id/cancel', auth('user'), cancelOrder);
+router.put("/:id/cancel", auth("user"), cancelOrder);
 
 /**
  * @swagger
@@ -386,7 +395,7 @@ router.put('/:id/cancel', auth('user'), cancelOrder);
  *       404:
  *         description: Order not found
  */
-router.put('/:id/return', auth('user'), returnOrder);
+router.put("/:id/return", auth("user"), returnOrder);
 
 /**
  * @swagger
@@ -435,7 +444,7 @@ router.put('/:id/return', auth('user'), returnOrder);
  *       404:
  *         description: Order not found
  */
-router.put('/:id/payment', auth('admin'), updatePaymentStatus);
+router.put("/:id/payment", auth("admin", "vendor"), updatePaymentStatus);
 
 /**
  * @swagger
@@ -469,6 +478,6 @@ router.put('/:id/payment', auth('admin'), updatePaymentStatus);
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/summary', auth('admin'), getOrderSummary);
+// (moved above)
 
 export const orderRouter = router;

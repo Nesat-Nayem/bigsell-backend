@@ -3,7 +3,6 @@ import { authRouter } from "../modules/auth/auth.routes";
 import { categoryRouter } from "../modules/category/category.routes";
 import { bannerRouter } from "../modules/banner/banner.routes";
 import { contractRouter } from "../modules/contact/contract.routes";
-// import { saveCardRouter } from "../modules/savecard/savecard.routes";
 import { faqRouter } from "../modules/faq/faq.routes";
 import { privacyPolicyRouter } from "../modules/privacy-policy/privacy-policy.routes";
 import { shippingPolicyRouter } from "../modules/shipping-policy/shipping-policy.routes";
@@ -27,6 +26,10 @@ import { wishlistRouter } from "../modules/wishlist/wishlist.routes";
 import { aboutRouter } from "../modules/about/about.routes";
 import { footerWidgetRouter } from "../modules/footer-widget/footer-widget.routes";
 import { generalSettingsRouter } from "../modules/general-settings/general-settings.routes";
+import { productCategoryRouter } from "../modules/Product-category/product-category.routes";
+import { subscriptionRouter } from "../modules/subscription/subscription.routes";
+import { subscriptionIncludeRouter } from "../modules/subscription-include/subscription-include.routes";
+import { vendorRouter } from "../modules/vendor/vendor.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -34,7 +37,6 @@ const moduleRoutes = [
     path: "/auth",
     route: authRouter,
   },
-  
 
   {
     path: "/categories",
@@ -142,13 +144,17 @@ const moduleRoutes = [
   },
 
   {
-    path: "/uploads",
+    path: "/upload",
     route: uploadRouter,
   },
 
   {
     path: "/products",
     route: productRouter,
+  },
+  {
+    path: "/productsCategory",
+    route: productCategoryRouter,
   },
   {
     path: "/cart",
@@ -168,6 +174,18 @@ const moduleRoutes = [
   {
     path: "/wishlist",
     route: wishlistRouter,
+  },
+  {
+    path: "/subscriptions",
+    route: subscriptionRouter,
+  },
+  {
+    path: "/subscription-includes",
+    route: subscriptionIncludeRouter,
+  },
+  {
+    path: "/vendors",
+    route: vendorRouter,
   },
 ];
 

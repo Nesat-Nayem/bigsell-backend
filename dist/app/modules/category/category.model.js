@@ -40,23 +40,24 @@ const CategorySchema = new mongoose_1.Schema({
         type: String,
         required: true,
         unique: true,
-        trim: true
+        trim: true,
     },
     image: {
         type: String,
-        required: true
+        required: true,
     },
     isDeleted: {
         type: Boolean,
-        default: false
+        default: false,
     },
 }, {
     timestamps: true,
     toJSON: {
         transform: function (doc, ret) {
-            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        }
-    }
+            ret.createdAt = new Date(ret.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+            return ret;
+        },
+    },
 });
-exports.Category = mongoose_1.default.model('Category', CategorySchema);
+exports.Category = mongoose_1.default.model("Category", CategorySchema);

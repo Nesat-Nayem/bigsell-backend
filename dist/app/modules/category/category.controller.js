@@ -19,7 +19,10 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
     try {
         const { title } = req.body;
         // Check if category with same title already exists
-        const existingCategory = yield category_model_1.Category.findOne({ title, isDeleted: false });
+        const existingCategory = yield category_model_1.Category.findOne({
+            title,
+            isDeleted: false,
+        });
         if (existingCategory) {
             next(new appError_1.appError("Category with this title already exists", 400));
             return;
@@ -34,7 +37,7 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
         // Validate the input
         const validatedData = category_validation_1.categoryValidation.parse({
             title,
-            image
+            image,
         });
         // Create a new category
         const category = new category_model_1.Category(validatedData);
@@ -50,7 +53,7 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
     catch (error) {
         // If error is during image upload, delete the uploaded image if any
         if ((_a = req.file) === null || _a === void 0 ? void 0 : _a.path) {
-            const publicId = (_b = req.file.path.split('/').pop()) === null || _b === void 0 ? void 0 : _b.split('.')[0];
+            const publicId = (_b = req.file.path.split("/").pop()) === null || _b === void 0 ? void 0 : _b.split(".")[0];
             if (publicId) {
                 yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
             }
@@ -61,7 +64,17 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
 exports.createCategory = createCategory;
 const getAllCategories = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const categories = yield category_model_1.Category.find({ isDeleted: false }).sort({ createdAt: -1 });
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        // Get total count for pagination
+        const total = yield category_model_1.Category.countDocuments({ isDeleted: false });
+        const totalPages = Math.ceil(total / limit);
+        // Get categories with pagination
+        const categories = yield category_model_1.Category.find({ isDeleted: false })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
         if (categories.length === 0) {
             next(new appError_1.appError("No categories found", 404));
             return;
@@ -70,6 +83,12 @@ const getAllCategories = (req, res, next) => __awaiter(void 0, void 0, void 0, f
             success: true,
             statusCode: 200,
             message: "Categories retrieved successfully",
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages,
+            },
             data: categories,
         });
         return;
@@ -83,7 +102,7 @@ const getCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
     try {
         const category = yield category_model_1.Category.findOne({
             _id: req.params.id,
-            isDeleted: false
+            isDeleted: false,
         });
         if (!category) {
             next(new appError_1.appError("Category not found", 404));
@@ -109,7 +128,7 @@ const updateCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0,
         // Find the category to update
         const category = yield category_model_1.Category.findOne({
             _id: categoryId,
-            isDeleted: false
+            isDeleted: false,
         });
         if (!category) {
             next(new appError_1.appError("Category not found", 404));
@@ -123,7 +142,7 @@ const updateCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0,
                 const existingCategory = yield category_model_1.Category.findOne({
                     title: req.body.title,
                     isDeleted: false,
-                    _id: { $ne: categoryId }
+                    _id: { $ne: categoryId },
                 });
                 if (existingCategory) {
                     next(new appError_1.appError("Category with this title already exists", 400));
@@ -137,7 +156,7 @@ const updateCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0,
             updateData.image = req.file.path;
             // Delete the old image from cloudinary if it exists
             if (category.image) {
-                const publicId = (_a = category.image.split('/').pop()) === null || _a === void 0 ? void 0 : _a.split('.')[0];
+                const publicId = (_a = category.image.split("/").pop()) === null || _a === void 0 ? void 0 : _a.split(".")[0];
                 if (publicId) {
                     yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
                 }
@@ -168,7 +187,7 @@ const updateCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0,
     catch (error) {
         // If error occurs and image was uploaded, delete it
         if ((_b = req.file) === null || _b === void 0 ? void 0 : _b.path) {
-            const publicId = (_c = req.file.path.split('/').pop()) === null || _c === void 0 ? void 0 : _c.split('.')[0];
+            const publicId = (_c = req.file.path.split("/").pop()) === null || _c === void 0 ? void 0 : _c.split(".")[0];
             if (publicId) {
                 yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
             }

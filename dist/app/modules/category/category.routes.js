@@ -61,7 +61,7 @@ const router = express_1.default.Router();
  *       409:
  *         description: Category already exists
  */
-router.post('/', (0, authMiddleware_1.auth)('admin'), cloudinary_1.upload.single('image'), category_controller_1.createCategory);
+router.post("/", (0, authMiddleware_1.auth)("admin", "vendor"), cloudinary_1.upload.single("image"), category_controller_1.createCategory);
 /**
  * @swagger
  * /v1/api/categories:
@@ -118,7 +118,7 @@ router.post('/', (0, authMiddleware_1.auth)('admin'), cloudinary_1.upload.single
  *                   items:
  *                     $ref: '#/components/schemas/Category'
  */
-router.get('/', category_controller_1.getAllCategories);
+router.get("/", category_controller_1.getAllCategories);
 /**
  * @swagger
  * /v1/api/categories/{id}:
@@ -154,7 +154,7 @@ router.get('/', category_controller_1.getAllCategories);
  *       404:
  *         description: Category not found
  */
-router.get('/:id', category_controller_1.getCategoryById);
+router.get("/:id", category_controller_1.getCategoryById);
 /**
  * @swagger
  * /v1/api/categories/{id}:
@@ -211,7 +211,7 @@ router.get('/:id', category_controller_1.getCategoryById);
  *       404:
  *         description: Category not found
  */
-router.put('/:id', (0, authMiddleware_1.auth)('admin'), cloudinary_1.upload.single('image'), category_controller_1.updateCategoryById);
+router.put("/:id", (0, authMiddleware_1.auth)("admin", "vendor"), cloudinary_1.upload.single("image"), category_controller_1.updateCategoryById);
 /**
  * @swagger
  * /v1/api/categories/{id}:
@@ -249,5 +249,5 @@ router.put('/:id', (0, authMiddleware_1.auth)('admin'), cloudinary_1.upload.sing
  *       404:
  *         description: Category not found
  */
-router.delete('/:id', (0, authMiddleware_1.auth)('admin'), category_controller_1.deleteCategoryById);
+router.delete("/:id", (0, authMiddleware_1.auth)("admin", "vendor"), category_controller_1.deleteCategoryById);
 exports.categoryRouter = router;

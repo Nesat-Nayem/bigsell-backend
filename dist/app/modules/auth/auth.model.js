@@ -51,33 +51,33 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const MenuBookmarkSchema = new mongoose_1.Schema({
     menuItemId: {
         type: String,
-        required: true
+        required: true,
     },
     hotelId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
-        ref: 'Hotel',
-        required: true
+        ref: "Hotel",
+        required: true,
     },
     hotelName: {
         type: String,
-        required: true
+        required: true,
     },
     menuTitle: {
         type: String,
-        required: true
+        required: true,
     },
     menuImage: {
         type: String,
-        required: true
+        required: true,
     },
     menuPrice: {
         type: Number,
-        required: true
+        required: true,
     },
     bookmarkedAt: {
         type: Date,
-        default: Date.now
-    }
+        default: Date.now,
+    },
 }, { _id: false });
 const userSchema = new mongoose_1.Schema({
     name: { type: String },
@@ -85,22 +85,22 @@ const userSchema = new mongoose_1.Schema({
     phone: { type: String, required: true },
     email: { type: String },
     img: { type: String },
-    role: { type: String, enum: ['admin', 'vendor', 'user'], default: 'user' },
-    status: { type: String, enum: ['pending', 'active'], default: 'active' },
+    role: { type: String, enum: ["admin", "vendor", "user"], default: "user" },
+    status: { type: String, enum: ["pending", "active"], default: "active" },
     otp: { type: String },
     otpExpires: { type: Date },
     packageFeatures: {
         type: [String],
-        default: []
+        default: [],
     },
     menuBookmarks: {
         type: [MenuBookmarkSchema],
-        default: []
+        default: [],
     },
 }, { timestamps: true });
-userSchema.pre('save', function (next) {
+userSchema.pre("save", function (next) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (!this.isModified('password')) {
+        if (!this.isModified("password")) {
             return next();
         }
         const salt = yield bcrypt_1.default.genSalt(10);
@@ -119,4 +119,4 @@ userSchema.methods.compareOtp = function (otp) {
 };
 // Add index for phone
 userSchema.index({ phone: 1 }, { unique: true });
-exports.User = mongoose_1.default.model('User', userSchema);
+exports.User = mongoose_1.default.model("User", userSchema);

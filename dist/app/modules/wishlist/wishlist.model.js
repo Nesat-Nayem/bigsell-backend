@@ -93,7 +93,6 @@ const WishlistSchema = new mongoose_1.Schema({
     }
 });
 // Indexes for better performance
-WishlistSchema.index({ user: 1 });
 WishlistSchema.index({ user: 1, isDeleted: 1 });
 WishlistSchema.index({ 'items.product': 1 });
 WishlistSchema.index({ 'items.addedAt': -1 });

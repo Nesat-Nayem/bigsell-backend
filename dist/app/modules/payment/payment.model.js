@@ -63,27 +63,29 @@ const RefundInfoSchema = new mongoose_1.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'processed', 'failed'],
-        default: 'pending',
+        enum: ["pending", "processed", "failed"],
+        default: "pending",
     },
     processedAt: {
         type: Date,
     },
     refundedBy: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
     },
 }, {
     _id: false,
     timestamps: true,
 });
-// Payment Gateway Response Schema
+// Payment Gateway Response Schema (Updated for multi-gateway support)
 const PaymentGatewayResponseSchema = new mongoose_1.Schema({
+    // Common fields
     id: String,
     entity: String,
     amount: Number,
     currency: String,
     status: String,
+    // Razorpay specific
     order_id: String,
     invoice_id: String,
     international: Boolean,
@@ -91,16 +93,39 @@ const PaymentGatewayResponseSchema = new mongoose_1.Schema({
     amount_refunded: Number,
     refund_status: String,
     captured: Boolean,
-    description: String,
     card_id: String,
     bank: String,
     wallet: String,
     vpa: String,
+    fee: Number,
+    tax: Number,
+    // CCAvenue specific
+    tracking_id: String,
+    bank_ref_num: String,
+    order_status: String,
+    failure_message: String,
+    payment_mode: String,
+    card_name: String,
+    // Paytm specific
+    TXNID: String,
+    BANKTXNID: String,
+    ORDERID: String,
+    TXNAMOUNT: String,
+    STATUS: String,
+    TXNTYPE: String,
+    GATEWAYNAME: String,
+    RESPCODE: String,
+    RESPMSG: String,
+    BANKNAME: String,
+    MID: String,
+    PAYMENTMODE: String,
+    REFUNDAMT: String,
+    TXNDATE: String,
+    // Common fields for all gateways
+    description: String,
     email: String,
     contact: String,
     notes: mongoose_1.Schema.Types.Mixed,
-    fee: Number,
-    tax: Number,
     error_code: String,
     error_description: String,
     error_source: String,
@@ -108,7 +133,7 @@ const PaymentGatewayResponseSchema = new mongoose_1.Schema({
     error_reason: String,
     created_at: Number,
 }, { _id: false });
-// Main Payment Schema
+// Main Payment Schema (Enhanced)
 const PaymentSchema = new mongoose_1.Schema({
     // Basic Information
     paymentId: {
@@ -119,12 +144,12 @@ const PaymentSchema = new mongoose_1.Schema({
     },
     orderId: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'Order',
+        ref: "Order",
         required: true,
     },
     userId: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
         required: true,
     },
     // Amount Details
@@ -136,7 +161,7 @@ const PaymentSchema = new mongoose_1.Schema({
     currency: {
         type: String,
         required: true,
-        default: 'INR',
+        default: "INR",
         uppercase: true,
     },
     amountRefunded: {
@@ -147,23 +172,64 @@ const PaymentSchema = new mongoose_1.Schema({
     // Payment Details
     method: {
         type: String,
-        enum: ['card', 'upi', 'netbanking', 'wallet', 'cash_on_delivery'],
+        enum: [
+            "card",
+            "upi",
+            "netbanking",
+            "wallet",
+            "cash_on_delivery",
+            "emi",
+            "postpaid",
+        ],
         required: true,
+    },
+    gateway: {
+        type: String,
+        enum: ["razorpay", "ccavenue", "paytm", "cash_on_delivery"],
+        required: true,
+        default: "razorpay",
     },
     status: {
         type: String,
-        enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded'],
-        default: 'pending',
+        enum: [
+            "pending",
+            "processing",
+            "completed",
+            "failed",
+            "cancelled",
+            "refunded",
+            "partially_refunded",
+        ],
+        default: "pending",
     },
-    // Razorpay Details
+    // Gateway-specific Details (Updated)
+    gatewayOrderId: {
+        type: String,
+        trim: true,
+        index: true,
+        sparse: true, // Allows multiple null values
+    },
+    gatewayPaymentId: {
+        type: String,
+        trim: true,
+        index: true,
+        sparse: true,
+    },
+    gatewaySignature: {
+        type: String,
+        trim: true,
+    },
+    // Legacy Razorpay fields (for backward compatibility)
     razorpayOrderId: {
         type: String,
         trim: true,
-        sparse: true, // Allows multiple null values
+        index: true,
+        sparse: true,
     },
     razorpayPaymentId: {
         type: String,
         trim: true,
+        index: true,
         sparse: true,
     },
     razorpaySignature: {
@@ -238,92 +304,110 @@ const PaymentSchema = new mongoose_1.Schema({
     timestamps: true,
     toJSON: {
         transform: function (doc, ret) {
-            ret.createdAt = new Date(ret.createdAt).toLocaleString('en-IN', {
-                timeZone: 'Asia/Kolkata'
+            ret.createdAt = new Date(ret.createdAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
             });
-            ret.updatedAt = new Date(ret.updatedAt).toLocaleString('en-IN', {
-                timeZone: 'Asia/Kolkata'
+            ret.updatedAt = new Date(ret.updatedAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
             });
             if (ret.initiatedAt) {
-                ret.initiatedAt = new Date(ret.initiatedAt).toLocaleString('en-IN', {
-                    timeZone: 'Asia/Kolkata'
+                ret.initiatedAt = new Date(ret.initiatedAt).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
                 });
             }
             if (ret.completedAt) {
-                ret.completedAt = new Date(ret.completedAt).toLocaleString('en-IN', {
-                    timeZone: 'Asia/Kolkata'
+                ret.completedAt = new Date(ret.completedAt).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
                 });
             }
             if (ret.failedAt) {
-                ret.failedAt = new Date(ret.failedAt).toLocaleString('en-IN', {
-                    timeZone: 'Asia/Kolkata'
+                ret.failedAt = new Date(ret.failedAt).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
                 });
             }
             return ret;
-        }
-    }
+        },
+    },
 });
-// Indexes for better performance
-PaymentSchema.index({ paymentId: 1 });
+// Indexes for better performance (Updated)
+// Note: Avoid duplicating indexes defined via field-level options (unique/index/sparse)
+// paymentId has a unique index at the field level
 PaymentSchema.index({ orderId: 1 });
 PaymentSchema.index({ userId: 1 });
-PaymentSchema.index({ razorpayOrderId: 1 });
-PaymentSchema.index({ razorpayPaymentId: 1 });
+PaymentSchema.index({ gateway: 1 });
+// gatewayOrderId, gatewayPaymentId, razorpayOrderId, razorpayPaymentId are indexed at field level
 PaymentSchema.index({ status: 1 });
 PaymentSchema.index({ method: 1 });
 PaymentSchema.index({ initiatedAt: -1 });
 PaymentSchema.index({ userId: 1, status: 1 });
 PaymentSchema.index({ orderId: 1, status: 1 });
+PaymentSchema.index({ gateway: 1, status: 1 });
 PaymentSchema.index({ isDeleted: 1 });
 // Generate unique payment ID
-PaymentSchema.pre('save', function (next) {
+PaymentSchema.pre("save", function (next) {
     return __awaiter(this, void 0, void 0, function* () {
         if (this.isNew && !this.paymentId) {
             const timestamp = Date.now().toString();
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            const random = Math.floor(Math.random() * 1000)
+                .toString()
+                .padStart(3, "0");
             this.paymentId = `PAY-${timestamp}-${random}`;
         }
+        // Sync gateway-specific fields with generic fields for backward compatibility
+        if (this.gateway === "razorpay") {
+            if (this.gatewayOrderId && !this.razorpayOrderId) {
+                this.razorpayOrderId = this.gatewayOrderId;
+            }
+            if (this.gatewayPaymentId && !this.razorpayPaymentId) {
+                this.razorpayPaymentId = this.gatewayPaymentId;
+            }
+            if (this.gatewaySignature && !this.razorpaySignature) {
+                this.razorpaySignature = this.gatewaySignature;
+            }
+        }
         // Update status timestamps
-        if (this.isModified('status')) {
+        if (this.isModified("status")) {
             const now = new Date();
             switch (this.status) {
-                case 'completed':
+                case "completed":
                     if (!this.completedAt)
                         this.completedAt = now;
                     break;
-                case 'failed':
-                case 'cancelled':
+                case "failed":
+                case "cancelled":
                     if (!this.failedAt)
                         this.failedAt = now;
                     break;
             }
         }
         // Update refund status based on refunded amount
-        if (this.isModified('amountRefunded')) {
+        if (this.isModified("amountRefunded")) {
             if (this.amountRefunded > 0) {
                 if (this.amountRefunded >= this.amount) {
-                    this.status = 'refunded';
+                    this.status = "refunded";
                 }
                 else {
-                    this.status = 'partially_refunded';
+                    this.status = "partially_refunded";
                 }
             }
         }
         next();
     });
 });
-// Static method to find user payments
+// Static method to find user payments (Updated)
 PaymentSchema.statics.findUserPayments = function (userId, options = {}) {
-    const { page = 1, limit = 10, status, method, sort = '-initiatedAt' } = options;
+    const { page = 1, limit = 10, status, method, gateway, sort = "-initiatedAt", } = options;
     const filter = { userId, isDeleted: false };
     if (status)
         filter.status = status;
     if (method)
         filter.method = method;
+    if (gateway)
+        filter.gateway = gateway;
     const skip = (page - 1) * limit;
     return this.find(filter)
-        .populate('orderId', 'orderNumber totalAmount status')
-        .populate('userId', 'name email phone')
+        .populate("orderId", "orderNumber totalAmount status")
+        .populate("userId", "name email phone")
         .sort(sort)
         .skip(skip)
         .limit(limit);
@@ -331,8 +415,22 @@ PaymentSchema.statics.findUserPayments = function (userId, options = {}) {
 // Static method to find order payments
 PaymentSchema.statics.findOrderPayments = function (orderId) {
     return this.find({ orderId, isDeleted: false })
-        .populate('userId', 'name email phone')
-        .sort('-initiatedAt');
+        .populate("userId", "name email phone")
+        .sort("-initiatedAt");
+};
+// Static method to find payments by gateway
+PaymentSchema.statics.findByGateway = function (gateway, options = {}) {
+    const { page = 1, limit = 10, status, sort = "-initiatedAt" } = options;
+    const filter = { gateway, isDeleted: false };
+    if (status)
+        filter.status = status;
+    const skip = (page - 1) * limit;
+    return this.find(filter)
+        .populate("orderId", "orderNumber totalAmount status")
+        .populate("userId", "name email phone")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit);
 };
 // Instance method to add refund
 PaymentSchema.methods.addRefund = function (refundInfo) {
@@ -342,7 +440,7 @@ PaymentSchema.methods.addRefund = function (refundInfo) {
 };
 // Instance method to mark as completed
 PaymentSchema.methods.markCompleted = function (gatewayResponse) {
-    this.status = 'completed';
+    this.status = "completed";
     this.completedAt = new Date();
     if (gatewayResponse) {
         this.gatewayResponse = gatewayResponse;
@@ -351,7 +449,7 @@ PaymentSchema.methods.markCompleted = function (gatewayResponse) {
 };
 // Instance method to mark as failed
 PaymentSchema.methods.markFailed = function (reason, errorCode, errorDescription) {
-    this.status = 'failed';
+    this.status = "failed";
     this.failedAt = new Date();
     this.failureReason = reason;
     if (errorCode)
@@ -360,16 +458,46 @@ PaymentSchema.methods.markFailed = function (reason, errorCode, errorDescription
         this.errorDescription = errorDescription;
     return this.save();
 };
+// Instance method to process gateway-specific refund
+PaymentSchema.methods.processGatewayRefund = function (refundAmount, refundReason) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // This method would handle gateway-specific refund logic
+        // Implementation would depend on the specific gateway
+        switch (this.gateway) {
+            case "razorpay":
+                // Razorpay refund logic
+                break;
+            case "ccavenue":
+                // CCAvenue refund logic
+                break;
+            case "paytm":
+                // Paytm refund logic
+                break;
+            default:
+                throw new Error("Gateway not supported for refunds");
+        }
+    });
+};
 // Virtual for refund status
-PaymentSchema.virtual('refundStatus').get(function () {
+PaymentSchema.virtual("refundStatus").get(function () {
     if (this.amountRefunded === 0)
-        return 'none';
+        return "none";
     if (this.amountRefunded >= this.amount)
-        return 'full';
-    return 'partial';
+        return "full";
+    return "partial";
 });
 // Virtual for amount in rupees (from paisa)
-PaymentSchema.virtual('amountInRupees').get(function () {
+PaymentSchema.virtual("amountInRupees").get(function () {
     return this.amount / 100;
 });
-exports.Payment = mongoose_1.default.model('Payment', PaymentSchema);
+// Virtual for gateway display name
+PaymentSchema.virtual("gatewayDisplayName").get(function () {
+    const gatewayNames = {
+        razorpay: "Razorpay",
+        ccavenue: "CCAvenue",
+        paytm: "Paytm",
+        cash_on_delivery: "Cash on Delivery",
+    };
+    return gatewayNames[this.gateway] || this.gateway;
+});
+exports.Payment = mongoose_1.default.model("Payment", PaymentSchema);

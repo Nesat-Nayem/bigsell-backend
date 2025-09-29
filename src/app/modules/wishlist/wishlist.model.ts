@@ -55,7 +55,6 @@ const WishlistSchema: Schema = new Schema(
 );
 
 // Indexes for better performance
-WishlistSchema.index({ user: 1 });
 WishlistSchema.index({ user: 1, isDeleted: 1 });
 WishlistSchema.index({ 'items.product': 1 });
 WishlistSchema.index({ 'items.addedAt': -1 });

@@ -5,7 +5,6 @@ const auth_routes_1 = require("../modules/auth/auth.routes");
 const category_routes_1 = require("../modules/category/category.routes");
 const banner_routes_1 = require("../modules/banner/banner.routes");
 const contract_routes_1 = require("../modules/contact/contract.routes");
-// import { saveCardRouter } from "../modules/savecard/savecard.routes";
 const faq_routes_1 = require("../modules/faq/faq.routes");
 const privacy_policy_routes_1 = require("../modules/privacy-policy/privacy-policy.routes");
 const shipping_policy_routes_1 = require("../modules/shipping-policy/shipping-policy.routes");
@@ -29,6 +28,10 @@ const wishlist_routes_1 = require("../modules/wishlist/wishlist.routes");
 const about_routes_1 = require("../modules/about/about.routes");
 const footer_widget_routes_1 = require("../modules/footer-widget/footer-widget.routes");
 const general_settings_routes_1 = require("../modules/general-settings/general-settings.routes");
+const product_category_routes_1 = require("../modules/Product-category/product-category.routes");
+const subscription_routes_1 = require("../modules/subscription/subscription.routes");
+const subscription_include_routes_1 = require("../modules/subscription-include/subscription-include.routes");
+const vendor_routes_1 = require("../modules/vendor/vendor.routes");
 const router = (0, express_1.Router)();
 const moduleRoutes = [
     {
@@ -120,12 +123,16 @@ const moduleRoutes = [
         route: blog_routes_1.blogRouter,
     },
     {
-        path: "/uploads",
+        path: "/upload",
         route: upload_routes_1.uploadRouter,
     },
     {
         path: "/products",
         route: product_routes_1.productRouter,
+    },
+    {
+        path: "/productsCategory",
+        route: product_category_routes_1.productCategoryRouter,
     },
     {
         path: "/cart",
@@ -142,6 +149,18 @@ const moduleRoutes = [
     {
         path: "/wishlist",
         route: wishlist_routes_1.wishlistRouter,
+    },
+    {
+        path: "/subscriptions",
+        route: subscription_routes_1.subscriptionRouter,
+    },
+    {
+        path: "/subscription-includes",
+        route: subscription_include_routes_1.subscriptionIncludeRouter,
+    },
+    {
+        path: "/vendors",
+        route: vendor_routes_1.vendorRouter,
     },
 ];
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

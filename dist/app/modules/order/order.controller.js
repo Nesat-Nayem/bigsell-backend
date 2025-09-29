@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOrderSummary = exports.updatePaymentStatus = exports.returnOrder = exports.cancelOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.getUserOrders = exports.createOrder = void 0;
+exports.getOrderSummary = exports.updatePaymentStatus = exports.returnOrder = exports.cancelOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.getUserOrders = exports.getVendorOrderSummary = exports.getVendorOrders = exports.createOrder = void 0;
 const order_model_1 = require("./order.model");
 const product_model_1 = require("../product/product.model");
 const cart_model_1 = require("../cart/cart.model");
@@ -149,6 +149,179 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.createOrder = createOrder;
+// Get vendor's orders (orders that include products owned by the vendor)
+const getVendorOrders = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const vendorId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { page = 1, limit = 10, status, paymentStatus, dateFrom, dateTo, sort = '-orderDate' } = req.query;
+        if (!vendorId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        // Find product ids owned by vendor
+        const vendorProductIds = yield product_model_1.Product.find({ vendor: vendorId, isDeleted: false }).distinct('_id');
+        if (vendorProductIds.length === 0) {
+            return res.status(200).json({
+                success: true,
+                statusCode: 200,
+                message: 'Orders retrieved successfully',
+                meta: {
+                    page: Number(page),
+                    limit: Number(limit),
+                    total: 0,
+                    totalPages: 0,
+                    hasPrevPage: false,
+                    hasNextPage: false,
+                },
+                data: [],
+            });
+        }
+        const filter = {
+            isDeleted: false,
+            'items.product': { $in: vendorProductIds },
+        };
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (dateFrom || dateTo) {
+            filter.orderDate = {};
+            if (dateFrom)
+                filter.orderDate.$gte = new Date(String(dateFrom));
+            if (dateTo)
+                filter.orderDate.$lte = new Date(String(dateTo));
+        }
+        const skip = (Number(page) - 1) * Number(limit);
+        const [orders, total] = yield Promise.all([
+            order_model_1.Order.find(filter)
+                .populate('user', 'name email phone')
+                .populate('items.product', 'name price images thumbnail')
+                .sort(String(sort))
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            order_model_1.Order.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / Number(limit));
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Orders retrieved successfully',
+            meta: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages,
+                hasPrevPage: Number(page) > 1,
+                hasNextPage: Number(page) < totalPages,
+            },
+            data: orders,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getVendorOrders = getVendorOrders;
+// Get vendor-specific order summary/statistics
+const getVendorOrderSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    try {
+        const vendorId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        if (!vendorId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        // Get vendor product ids
+        const vendorProductIds = yield product_model_1.Product.find({ vendor: vendorId, isDeleted: false }).distinct('_id');
+        if (vendorProductIds.length === 0) {
+            return res.status(200).json({
+                success: true,
+                statusCode: 200,
+                message: 'Order summary retrieved successfully',
+                data: {
+                    totalOrders: 0,
+                    pendingOrders: 0,
+                    completedOrders: 0,
+                    totalRevenue: 0,
+                    monthlyRevenue: Array(12).fill(0),
+                    monthlyOrders: Array(12).fill(0),
+                },
+            });
+        }
+        // Summary counts
+        const [totalOrders, pendingOrders, completedOrders] = yield Promise.all([
+            order_model_1.Order.countDocuments({ isDeleted: false, 'items.product': { $in: vendorProductIds } }),
+            order_model_1.Order.countDocuments({ status: 'pending', isDeleted: false, 'items.product': { $in: vendorProductIds } }),
+            order_model_1.Order.countDocuments({ status: 'delivered', isDeleted: false, 'items.product': { $in: vendorProductIds } }),
+        ]);
+        // Compute vendor-specific revenue and monthly stats using aggregation
+        const now = new Date();
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        const [totalRevenueAgg, monthlyAggDelivered, monthlyAggAll] = yield Promise.all([
+            order_model_1.Order.aggregate([
+                { $match: { status: 'delivered', isDeleted: false, 'items.product': { $in: vendorProductIds } } },
+                { $addFields: {
+                        vendorItems: {
+                            $filter: {
+                                input: '$items',
+                                as: 'it',
+                                cond: { $in: ['$$it.product', vendorProductIds] },
+                            }
+                        }
+                    } },
+                { $group: { _id: null, total: { $sum: { $sum: '$vendorItems.subtotal' } } } },
+            ]),
+            order_model_1.Order.aggregate([
+                { $match: { status: 'delivered', isDeleted: false, orderDate: { $gte: yearStart, $lte: yearEnd }, 'items.product': { $in: vendorProductIds } } },
+                { $addFields: {
+                        vendorItems: {
+                            $filter: { input: '$items', as: 'it', cond: { $in: ['$$it.product', vendorProductIds] } }
+                        }
+                    } },
+                { $group: { _id: { $month: '$orderDate' }, revenue: { $sum: { $sum: '$vendorItems.subtotal' } }, count: { $sum: 1 } } },
+            ]),
+            order_model_1.Order.aggregate([
+                { $match: { isDeleted: false, orderDate: { $gte: yearStart, $lte: yearEnd }, 'items.product': { $in: vendorProductIds } } },
+                { $group: { _id: { $month: '$orderDate' }, count: { $sum: 1 } } },
+            ]),
+        ]);
+        const monthlyRevenue = Array(12).fill(0);
+        const monthlyOrders = Array(12).fill(0);
+        monthlyAggDelivered.forEach((row) => {
+            const idx = row._id - 1;
+            if (idx >= 0 && idx < 12)
+                monthlyRevenue[idx] = row.revenue || 0;
+        });
+        monthlyAggAll.forEach((row) => {
+            const idx = row._id - 1;
+            if (idx >= 0 && idx < 12)
+                monthlyOrders[idx] = row.count || 0;
+        });
+        const summary = {
+            totalOrders,
+            pendingOrders,
+            completedOrders,
+            totalRevenue: ((_b = totalRevenueAgg === null || totalRevenueAgg === void 0 ? void 0 : totalRevenueAgg[0]) === null || _b === void 0 ? void 0 : _b.total) || 0,
+            monthlyRevenue,
+            monthlyOrders,
+        };
+        res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Order summary retrieved successfully',
+            data: summary,
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getVendorOrderSummary = getVendorOrderSummary;
 // Get user's orders
 const getUserOrders = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -261,14 +434,26 @@ const getOrderById = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
             return;
         }
         const filter = { _id: id, isDeleted: false };
-        // Non-admin users can only view their own orders
+        // Non-admin users: allow customer to view their order,
+        // and allow vendor to view if the order contains their products
         if (userRole !== 'admin') {
-            filter.user = userId;
+            if (userRole === 'user') {
+                filter.user = userId;
+            }
         }
-        const order = yield order_model_1.Order.findOne(filter)
+        let order = yield order_model_1.Order.findOne(filter)
             .populate('user', 'name email phone')
             .populate('items.product', 'name price images thumbnail')
             .lean();
+        // If vendor and not found by above filter (because not the customer),
+        // check if the order contains any of the vendor's products
+        if (!order && userRole === 'vendor') {
+            const vendorProductIds = yield product_model_1.Product.find({ vendor: userId, isDeleted: false }).distinct('_id');
+            order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false, 'items.product': { $in: vendorProductIds } })
+                .populate('user', 'name email phone')
+                .populate('items.product', 'name price images thumbnail')
+                .lean();
+        }
         if (!order) {
             next(new appError_1.appError('Order not found', 404));
             return;
@@ -445,14 +630,26 @@ const updatePaymentStatus = (req, res, next) => __awaiter(void 0, void 0, void 0
             next(new appError_1.appError('Order not found', 404));
             return;
         }
-        // Update payment info
+        // Validate and map payment status
+        const allowedStatuses = ['pending', 'paid', 'failed', 'refunded'];
+        if (!paymentStatus || !allowedStatuses.includes(paymentStatus)) {
+            next(new appError_1.appError('Invalid payment status', 400));
+            return;
+        }
+        // Map UI 'paid' -> paymentInfo.status 'completed' (schema enum)
+        const paymentInfoStatusMap = {
+            pending: 'pending',
+            paid: 'completed',
+            failed: 'failed',
+            refunded: 'refunded',
+        };
         order.paymentStatus = paymentStatus;
-        order.paymentInfo.status = paymentStatus;
+        order.paymentInfo.status = paymentInfoStatusMap[paymentStatus];
         if (transactionId)
             order.paymentInfo.transactionId = transactionId;
         if (paymentDate)
             order.paymentInfo.paymentDate = new Date(paymentDate);
-        if (paymentStatus === 'paid')
+        if (paymentStatus === 'paid' && !paymentDate)
             order.paymentInfo.paymentDate = new Date();
         yield order.save();
         // Get updated order with populated data
@@ -485,11 +682,63 @@ const getOrderSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
                 { $group: { _id: null, total: { $sum: '$totalAmount' } } }
             ]),
         ]);
+        // Build monthly revenue and orders for the current year
+        const now = new Date();
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        // Delivered only: revenue + count (for monthlyRevenue)
+        const monthlyAggDelivered = yield order_model_1.Order.aggregate([
+            {
+                $match: {
+                    status: 'delivered',
+                    isDeleted: false,
+                    orderDate: { $gte: yearStart, $lte: yearEnd },
+                },
+            },
+            {
+                $group: {
+                    _id: { $month: '$orderDate' },
+                    revenue: { $sum: '$totalAmount' },
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+        // All orders: count only (for monthlyOrders series)
+        const monthlyAggAll = yield order_model_1.Order.aggregate([
+            {
+                $match: {
+                    isDeleted: false,
+                    orderDate: { $gte: yearStart, $lte: yearEnd },
+                },
+            },
+            {
+                $group: {
+                    _id: { $month: '$orderDate' },
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+        const monthlyRevenue = Array(12).fill(0);
+        const monthlyOrders = Array(12).fill(0);
+        monthlyAggDelivered.forEach((row) => {
+            const idx = row._id - 1; // months are 1..12
+            if (idx >= 0 && idx < 12) {
+                monthlyRevenue[idx] = row.revenue || 0;
+            }
+        });
+        monthlyAggAll.forEach((row) => {
+            const idx = row._id - 1;
+            if (idx >= 0 && idx < 12) {
+                monthlyOrders[idx] = row.count || 0;
+            }
+        });
         const summary = {
             totalOrders,
             pendingOrders,
             completedOrders,
             totalRevenue: ((_a = totalRevenue[0]) === null || _a === void 0 ? void 0 : _a.total) || 0,
+            monthlyRevenue,
+            monthlyOrders,
         };
         res.status(200).json({
             success: true,

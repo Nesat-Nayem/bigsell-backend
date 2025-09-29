@@ -24,7 +24,7 @@ const storage = new multer_storage_cloudinary_1.CloudinaryStorage({
             if (req.originalUrl.includes('/products')) {
                 return 'restaurant-products';
             }
-            else if (req.originalUrl.includes('/categories')) {
+            else if (req.originalUrl.includes('/categories') || req.originalUrl.includes('/productsCategory')) {
                 return 'restaurant-categories';
             }
             else if (req.originalUrl.includes('/banners')) {

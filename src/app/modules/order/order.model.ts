@@ -295,7 +295,6 @@ const OrderSchema: Schema = new Schema(
 
 // Indexes for better performance
 OrderSchema.index({ user: 1 });
-OrderSchema.index({ orderNumber: 1 });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ paymentStatus: 1 });
 OrderSchema.index({ orderDate: -1 });

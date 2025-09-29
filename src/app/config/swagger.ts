@@ -1,31 +1,34 @@
-import swaggerJSDoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
-import { Application } from 'express';
+import swaggerJSDoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
+import { Application } from "express";
 
 const options: swaggerJSDoc.Options = {
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'BigSell E-commerce API',
-      version: '1.0.0',
+      title: "BigSell E-commerce API",
+      version: "1.0.0",
       // description: 'A comprehensive e-commerce API built with Express.js and TypeScript',
       contact: {
-        name: 'BigSell Team',
-        email: 'support@bigsell.com',
+        name: "BigSell Team",
+        email: "support@bigsell.com",
       },
       license: {
-        name: 'ISC',
+        name: "ISC",
       },
     },
     servers: [
       {
-        url: 'http://localhost:8080',
-        description: 'Development server',
+        url: "https://bigsellv2backend.vercel.app",
+        description: "Development server",
       },
-
       {
-        url: 'https://api.atpuae.com',
-        description: 'Production server',
+        url: "https://bigsellv2backend.vercel.app",
+        description: "Production server (Vercel)",
+      },
+      {
+        url: "https://api.atpuae.com",
+        description: "Legacy production server",
       },
     ],
     security: [
@@ -35,256 +38,276 @@ const options: swaggerJSDoc.Options = {
     ],
     tags: [
       {
-        name: 'Authentication',
-        description: 'Authentication related endpoints',
+        name: "Authentication",
+        description: "Authentication related endpoints",
       },
       {
-        name: 'Products',
-        description: 'Product management endpoints',
+        name: "Products",
+        description: "Product management endpoints",
       },
       {
-        name: 'Orders',
-        description: 'Order management endpoints',
+        name: "Product Categories",
+        description: "Product management endpoints",
       },
       {
-        name: 'Users',
-        description: 'User management endpoints',
+        name: "Orders",
+        description: "Order management endpoints",
       },
       {
-        name: 'OTP',
-        description: 'OTP verification endpoints',
+        name: "Users",
+        description: "User management endpoints",
       },
       {
-        name: 'Contacts',
-        description: 'Contact messages management',
+        name: "OTP",
+        description: "OTP verification endpoints",
       },
       {
-        name: 'Help Support',
-        description: 'Help & Support content management',
+        name: "Contacts",
+        description: "Contact messages management",
       },
       {
-        name: 'Privacy Policy',
-        description: 'Privacy policy content management',
+        name: "Help Support",
+        description: "Help & Support content management",
       },
       {
-        name: 'Terms & Conditions',
-        description: 'Terms & Conditions content management',
+        name: "Privacy Policy",
+        description: "Privacy policy content management",
       },
       {
-        name: 'FAQs',
-        description: 'Frequently Asked Questions management',
+        name: "Terms & Conditions",
+        description: "Terms & Conditions content management",
       },
       {
-        name: 'Blogs',
-        description: 'Blog management',
+        name: "FAQs",
+        description: "Frequently Asked Questions management",
       },
       {
-        name: 'Blog Categories',
-        description: 'Blog category management',
+        name: "Blogs",
+        description: "Blog management",
       },
       {
-        name: 'Banners',
-        description: 'Banner management',
+        name: "Blog Categories",
+        description: "Blog category management",
       },
       {
-        name: 'Header Banners',
-        description: 'Header banner management',
+        name: "Banners",
+        description: "Banner management",
       },
       {
-        name: 'Discount Offers',
-        description: 'Discount offer management',
+        name: "Header Banners",
+        description: "Header banner management",
       },
       {
-        name: 'Offer Banners',
-        description: 'Offer banner management',
+        name: "Discount Offers",
+        description: "Discount offer management",
       },
       {
-        name: 'About',
-        description: 'About page content (singleton)',
+        name: "Offer Banners",
+        description: "Offer banner management",
       },
       {
-        name: 'Footer Widgets',
-        description: 'Footer widgets management',
+        name: "About",
+        description: "About page content (singleton)",
       },
       {
-        name: 'General Settings',
-        description: 'General settings (singleton) management',
+        name: "Footer Widgets",
+        description: "Footer widgets management",
+      },
+      {
+        name: "General Settings",
+        description: "General settings (singleton) management",
       },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
         },
       },
       schemas: {
         User: {
-          type: 'object',
+          type: "object",
           properties: {
             _id: {
-              type: 'string',
-              description: 'User ID',
+              type: "string",
+              description: "User ID",
             },
             name: {
-              type: 'string',
-              description: 'User full name',
+              type: "string",
+              description: "User full name",
             },
             email: {
-              type: 'string',
-              format: 'email',
-              description: 'User email address',
+              type: "string",
+              format: "email",
+              description: "User email address",
             },
             phone: {
-              type: 'string',
-              description: 'User phone number',
+              type: "string",
+              description: "User phone number",
             },
             status: {
-              type: 'string',
-              enum: ['active', 'inactive', 'pending'],
-              description: 'User account status',
+              type: "string",
+              enum: ["active", "inactive", "pending"],
+              description: "User account status",
             },
             createdAt: {
-              type: 'string',
-              format: 'date-time',
+              type: "string",
+              format: "date-time",
             },
             updatedAt: {
-              type: 'string',
-              format: 'date-time',
+              type: "string",
+              format: "date-time",
             },
           },
         },
         Contact: {
-          type: 'object',
+          type: "object",
           properties: {
-            _id: { type: 'string', description: 'Contact ID' },
-            name: { type: 'string' },
-            email: { type: 'string', format: 'email' },
-            phone: { type: 'string' },
-            subject: { type: 'string' },
-            message: { type: 'string' },
-            status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
-            isDeleted: { type: 'boolean' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
+            _id: { type: "string", description: "Contact ID" },
+            name: { type: "string" },
+            email: { type: "string", format: "email" },
+            phone: { type: "string" },
+            subject: { type: "string" },
+            message: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["pending", "approved", "rejected"],
+            },
+            isDeleted: { type: "boolean" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
           },
         },
         ContactCreate: {
-          type: 'object',
-          required: ['name', 'email', 'phone', 'subject', 'message'],
+          type: "object",
+          required: ["name", "email", "phone", "subject", "message"],
           properties: {
-            name: { type: 'string', example: 'John Doe' },
-            email: { type: 'string', format: 'email', example: 'john@example.com' },
-            phone: { type: 'string', example: '+1 555-0123' },
-            subject: { type: 'string', example: 'Order inquiry' },
-            message: { type: 'string', example: 'I have a question about my order.' },
+            name: { type: "string", example: "John Doe" },
+            email: {
+              type: "string",
+              format: "email",
+              example: "john@example.com",
+            },
+            phone: { type: "string", example: "+1 555-0123" },
+            subject: { type: "string", example: "Order inquiry" },
+            message: {
+              type: "string",
+              example: "I have a question about my order.",
+            },
           },
         },
         ContactUpdate: {
-          type: 'object',
+          type: "object",
           properties: {
-            name: { type: 'string' },
-            email: { type: 'string', format: 'email' },
-            phone: { type: 'string' },
-            subject: { type: 'string' },
-            message: { type: 'string' },
-            status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+            name: { type: "string" },
+            email: { type: "string", format: "email" },
+            phone: { type: "string" },
+            subject: { type: "string" },
+            message: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["pending", "approved", "rejected"],
+            },
           },
         },
         HelpSupport: {
-          type: 'object',
+          type: "object",
           properties: {
-            _id: { type: 'string' },
-            content: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' },
+            _id: { type: "string" },
+            content: { type: "string" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
           },
         },
         HelpSupportUpdate: {
-          type: 'object',
-          required: ['content'],
+          type: "object",
+          required: ["content"],
           properties: {
-            content: { type: 'string', example: '<p>Help and Support content goes here.</p>' },
+            content: {
+              type: "string",
+              example: "<p>Help and Support content goes here.</p>",
+            },
           },
         },
         Category: {
-          type: 'object',
+          type: "object",
           properties: {
             _id: {
-              type: 'string',
-              description: 'Category ID',
+              type: "string",
+              description: "Category ID",
             },
             name: {
-              type: 'string',
-              description: 'Category name',
+              type: "string",
+              description: "Category name",
             },
             description: {
-              type: 'string',
-              description: 'Category description',
+              type: "string",
+              description: "Category description",
             },
             image: {
-              type: 'string',
-              description: 'Category image URL',
+              type: "string",
+              description: "Category image URL",
             },
             status: {
-              type: 'string',
-              enum: ['active', 'inactive'],
-              description: 'Category status',
+              type: "string",
+              enum: ["active", "inactive"],
+              description: "Category status",
             },
           },
         },
         Banner: {
-          type: 'object',
+          type: "object",
           properties: {
             _id: {
-              type: 'string',
-              description: 'Banner ID',
+              type: "string",
+              description: "Banner ID",
             },
             title: {
-              type: 'string',
-              description: 'Banner title',
+              type: "string",
+              description: "Banner title",
             },
             image: {
-              type: 'string',
-              description: 'Banner image URL',
+              type: "string",
+              description: "Banner image URL",
             },
             link: {
-              type: 'string',
-              description: 'Banner link URL',
+              type: "string",
+              description: "Banner link URL",
             },
             status: {
-              type: 'string',
-              enum: ['active', 'inactive'],
-              description: 'Banner status',
+              type: "string",
+              enum: ["active", "inactive"],
+              description: "Banner status",
             },
           },
         },
         Error: {
-          type: 'object',
+          type: "object",
           properties: {
             success: {
-              type: 'boolean',
+              type: "boolean",
               example: false,
             },
             statusCode: {
-              type: 'integer',
+              type: "integer",
               example: 400,
             },
             message: {
-              type: 'string',
-              example: 'Error message',
+              type: "string",
+              example: "Error message",
             },
             errorSources: {
-              type: 'array',
+              type: "array",
               items: {
-                type: 'object',
+                type: "object",
                 properties: {
                   path: {
-                    type: 'string',
+                    type: "string",
                   },
                   message: {
-                    type: 'string',
+                    type: "string",
                   },
                 },
               },
@@ -292,23 +315,23 @@ const options: swaggerJSDoc.Options = {
           },
         },
         Success: {
-          type: 'object',
+          type: "object",
           properties: {
             success: {
-              type: 'boolean',
+              type: "boolean",
               example: true,
             },
             statusCode: {
-              type: 'integer',
+              type: "integer",
               example: 200,
             },
             message: {
-              type: 'string',
-              example: 'Operation successful',
+              type: "string",
+              example: "Operation successful",
             },
             data: {
-              type: 'object',
-              description: 'Response data',
+              type: "object",
+              description: "Response data",
             },
           },
         },
@@ -321,10 +344,10 @@ const options: swaggerJSDoc.Options = {
     // ],
   },
   apis: [
-    './src/app/modules/*/*.routes.ts',
-    './src/app/modules/*/*.controller.ts',
-    './src/app/modules/*/*.schemas.ts',
-    './src/app/routes/index.ts',
+    "./src/app/modules/*/*.routes.ts",
+    "./src/app/modules/*/*.controller.ts",
+    "./src/app/modules/*/*.schemas.ts",
+    "./src/app/routes/index.ts",
   ],
 };
 
@@ -714,35 +737,92 @@ export const setupSwagger = (app: Application): void => {
     }
   `;
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
-    explorer: true,
-    customCss,
-    customSiteTitle: '🚀 BigSell API Documentation',
-    customfavIcon: 'https://cdn-icons-png.flaticon.com/512/2721/2721297.png',
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-      filter: true,
-      tryItOutEnabled: true,
-      docExpansion: 'none',
-      defaultModelsExpandDepth: 2,
-      defaultModelExpandDepth: 2,
-      displayOperationId: false,
-      showExtensions: true,
-      showCommonExtensions: true,
-    },
-  }));
+  // Custom route for better Vercel compatibility
+  app.get("/api-docs", (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🚀 BigSell API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2721/2721297.png" />
+  <style>
+    html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+    ${customCss}
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js" charset="UTF-8"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+  <script>
+    function initSwagger() {
+      // Wait for scripts to load
+      if (typeof SwaggerUIBundle === 'undefined' || typeof SwaggerUIStandalonePreset === 'undefined') {
+        setTimeout(initSwagger, 100);
+        return;
+      }
+
+      window.ui = SwaggerUIBundle({
+        url: '/api-docs.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        tryItOutEnabled: true,
+        docExpansion: 'none',
+        defaultModelsExpandDepth: 2,
+        defaultModelExpandDepth: 2,
+        displayOperationId: false,
+        showExtensions: true,
+        showCommonExtensions: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout"
+      });
+    }
+
+    // Initialize when DOM and scripts are ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initSwagger);
+    } else {
+      initSwagger();
+    }
+  </script>
+</body>
+</html>`;
+
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
+  });
 
   // JSON endpoint for the swagger spec
-  app.get('/api-docs.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  app.get("/api-docs.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
     res.send(specs);
   });
 
-  console.log('📚 Swagger documentation available at: http://localhost:8080/api-docs');
+  console.log(
+    "📚 Swagger documentation available at: https://bigsellv2backend.vercel.app/api-docs"
+  );
 };
 
 export default specs;

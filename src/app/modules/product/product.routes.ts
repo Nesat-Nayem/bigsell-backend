@@ -1,4 +1,4 @@
-import express from 'express';
+import express from "express";
 import {
   createProduct,
   getAllProducts,
@@ -15,8 +15,11 @@ import {
   searchProducts,
   getProductFilters,
   getProductBySlug,
-} from './product.controller';
-import { auth } from '../../middlewares/authMiddleware';
+  getProductSummary,
+  getManageProducts,
+  getVendorProductSummary,
+} from "./product.controller";
+import { auth } from "../../middlewares/authMiddleware";
 
 const router = express.Router();
 
@@ -46,7 +49,7 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  */
-router.post('/', auth('admin'), createProduct);
+router.post("/", auth("admin", "vendor"), createProduct);
 
 /**
  * @swagger
@@ -172,7 +175,11 @@ router.post('/', auth('admin'), createProduct);
  *             schema:
  *               $ref: '#/components/schemas/ProductsListResponse'
  */
-router.get('/', getAllProducts);
+// Public catalog listing (no auth)
+router.get("/", getAllProducts);
+
+// Authenticated manage listing (admin sees all; vendor sees own)
+router.get("/manage", auth("admin", "vendor"), getManageProducts);
 
 /**
  * @swagger
@@ -209,7 +216,7 @@ router.get('/', getAllProducts);
  *       400:
  *         description: Search query is required
  */
-router.get('/search', searchProducts);
+router.get("/search", searchProducts);
 
 /**
  * @swagger
@@ -232,7 +239,7 @@ router.get('/search', searchProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/featured', getFeaturedProducts);
+router.get("/featured", getFeaturedProducts);
 
 /**
  * @swagger
@@ -255,7 +262,7 @@ router.get('/featured', getFeaturedProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/trending', getTrendingProducts);
+router.get("/trending", getTrendingProducts);
 
 /**
  * @swagger
@@ -278,7 +285,7 @@ router.get('/trending', getTrendingProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/new-arrivals', getNewArrivalProducts);
+router.get("/new-arrivals", getNewArrivalProducts);
 
 /**
  * @swagger
@@ -301,7 +308,7 @@ router.get('/new-arrivals', getNewArrivalProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/discount', getDiscountProducts);
+router.get("/discount", getDiscountProducts);
 
 /**
  * @swagger
@@ -324,7 +331,7 @@ router.get('/discount', getDiscountProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/weekly-best-selling', getWeeklyBestSellingProducts);
+router.get("/weekly-best-selling", getWeeklyBestSellingProducts);
 
 /**
  * @swagger
@@ -347,7 +354,7 @@ router.get('/weekly-best-selling', getWeeklyBestSellingProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/weekly-discount', getWeeklyDiscountProducts);
+router.get("/weekly-discount", getWeeklyDiscountProducts);
 
 /**
  * @swagger
@@ -363,10 +370,15 @@ router.get('/weekly-discount', getWeeklyDiscountProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductFiltersResponse'
  */
-router.get('/filters', getProductFilters);
+router.get("/filters", getProductFilters);
+
+// Product summary (admin only)
+router.get("/summary", auth("admin"), getProductSummary);
+// Product summary (vendor scoped)
+router.get("/summary/vendor", auth("vendor"), getVendorProductSummary);
 
 // Get product by slug
-router.get('/slug/:slug', getProductBySlug);
+router.get("/slug/:slug", getProductBySlug);
 
 /**
  * @swagger
@@ -416,7 +428,7 @@ router.get('/slug/:slug', getProductBySlug);
  *       400:
  *         description: Invalid category ID
  */
-router.get('/category/:categoryId', getProductsByCategory);
+router.get("/category/:categoryId", getProductsByCategory);
 
 /**
  * @swagger
@@ -443,7 +455,7 @@ router.get('/category/:categoryId', getProductsByCategory);
  *       404:
  *         description: Product not found
  */
-router.get('/:id', getProductById);
+router.get("/:id", getProductById);
 
 /**
  * @swagger
@@ -480,7 +492,8 @@ router.get('/:id', getProductById);
  *       404:
  *         description: Product not found
  */
-router.put('/:id', auth('admin'), updateProduct);
+// Admin or Vendor (controller checks vendor ownership)
+router.put("/:id", auth("admin", "vendor"), updateProduct);
 
 /**
  * @swagger
@@ -507,6 +520,6 @@ router.put('/:id', auth('admin'), updateProduct);
  *       404:
  *         description: Product not found
  */
-router.delete('/:id', auth('admin'), deleteProduct);
+router.delete("/:id", auth("admin", "vendor"), deleteProduct);
 
 export const productRouter = router;

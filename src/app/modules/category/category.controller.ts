@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { Category } from "./category.model";
-import { categoryValidation, categoryUpdateValidation } from "./category.validation";
+import {
+  categoryValidation,
+  categoryUpdateValidation,
+} from "./category.validation";
 import { appError } from "../../errors/appError";
 import { cloudinary } from "../../config/cloudinary";
 
@@ -11,27 +14,30 @@ export const createCategory = async (
 ) => {
   try {
     const { title } = req.body;
-    
+
     // Check if category with same title already exists
-    const existingCategory = await Category.findOne({ title, isDeleted: false });
+    const existingCategory = await Category.findOne({
+      title,
+      isDeleted: false,
+    });
     if (existingCategory) {
-       next(new appError("Category with this title already exists", 400));
-       return;
+      next(new appError("Category with this title already exists", 400));
+      return;
     }
 
     // If image is uploaded through multer middleware, req.file will be available
     if (!req.file) {
-       next(new appError("Image is required", 400));
-       return;
+      next(new appError("Image is required", 400));
+      return;
     }
 
     // Get the image URL from req.file
     const image = req.file.path;
-    
+
     // Validate the input
-    const validatedData = categoryValidation.parse({ 
-      title, 
-      image 
+    const validatedData = categoryValidation.parse({
+      title,
+      image,
     });
 
     // Create a new category
@@ -48,7 +54,7 @@ export const createCategory = async (
   } catch (error) {
     // If error is during image upload, delete the uploaded image if any
     if (req.file?.path) {
-      const publicId = req.file.path.split('/').pop()?.split('.')[0];
+      const publicId = req.file.path.split("/").pop()?.split(".")[0];
       if (publicId) {
         await cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
       }
@@ -63,17 +69,35 @@ export const getAllCategories = async (
   next: NextFunction
 ) => {
   try {
-    const categories = await Category.find({ isDeleted: false }).sort({ createdAt: -1 });
-    
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const total = await Category.countDocuments({ isDeleted: false });
+    const totalPages = Math.ceil(total / limit);
+
+    // Get categories with pagination
+    const categories = await Category.find({ isDeleted: false })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
     if (categories.length === 0) {
-       next(new appError("No categories found", 404));
-       return;
+      next(new appError("No categories found", 404));
+      return;
     }
 
     res.json({
       success: true,
       statusCode: 200,
       message: "Categories retrieved successfully",
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
       data: categories,
     });
     return;
@@ -88,14 +112,14 @@ export const getCategoryById = async (
   next: NextFunction
 ) => {
   try {
-    const category = await Category.findOne({ 
-      _id: req.params.id, 
-      isDeleted: false 
+    const category = await Category.findOne({
+      _id: req.params.id,
+      isDeleted: false,
     });
-    
+
     if (!category) {
-       next(new appError("Category not found", 404));
-       return;
+      next(new appError("Category not found", 404));
+      return;
     }
 
     res.json({
@@ -117,33 +141,32 @@ export const updateCategoryById = async (
 ) => {
   try {
     const categoryId = req.params.id;
-    
     // Find the category to update
-    const category = await Category.findOne({ 
-      _id: categoryId, 
-      isDeleted: false 
+    const category = await Category.findOne({
+      _id: categoryId,
+      isDeleted: false,
     });
-    
+
     if (!category) {
-       next(new appError("Category not found", 404));
-       return;
+      next(new appError("Category not found", 404));
+      return;
     }
 
     // Prepare update data
-    const updateData: {title?: string, image?: string} = {};
-    
+    const updateData: { title?: string; image?: string } = {};
+
     if (req.body.title) {
       // Check if new title already exists
       if (req.body.title !== category.title) {
-        const existingCategory = await Category.findOne({ 
-          title: req.body.title, 
+        const existingCategory = await Category.findOne({
+          title: req.body.title,
           isDeleted: false,
-          _id: { $ne: categoryId } 
+          _id: { $ne: categoryId },
         });
-        
+
         if (existingCategory) {
-           next(new appError("Category with this title already exists", 400));
-           return;
+          next(new appError("Category with this title already exists", 400));
+          return;
         }
       }
       updateData.title = req.body.title;
@@ -152,12 +175,14 @@ export const updateCategoryById = async (
     // If there's a new image
     if (req.file) {
       updateData.image = req.file.path;
-      
+
       // Delete the old image from cloudinary if it exists
       if (category.image) {
-        const publicId = category.image.split('/').pop()?.split('.')[0];
+        const publicId = category.image.split("/").pop()?.split(".")[0];
         if (publicId) {
-          await cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
+          await cloudinary.uploader.destroy(
+            `restaurant-categories/${publicId}`
+          );
         }
       }
     }
@@ -165,7 +190,7 @@ export const updateCategoryById = async (
     // Validate the update data
     if (Object.keys(updateData).length > 0) {
       const validatedData = categoryUpdateValidation.parse(updateData);
-      
+
       // Update the category
       const updatedCategory = await Category.findByIdAndUpdate(
         categoryId,
@@ -173,7 +198,7 @@ export const updateCategoryById = async (
         { new: true }
       );
 
-       res.json({
+      res.json({
         success: true,
         statusCode: 200,
         message: "Category updated successfully",
@@ -183,18 +208,17 @@ export const updateCategoryById = async (
     }
 
     // If no updates provided
-     res.json({
+    res.json({
       success: true,
       statusCode: 200,
       message: "No changes to update",
       data: category,
     });
     return;
-
   } catch (error) {
     // If error occurs and image was uploaded, delete it
     if (req.file?.path) {
-      const publicId = req.file.path.split('/').pop()?.split('.')[0];
+      const publicId = req.file.path.split("/").pop()?.split(".")[0];
       if (publicId) {
         await cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
       }
@@ -214,10 +238,10 @@ export const deleteCategoryById = async (
       { isDeleted: true },
       { new: true }
     );
-    
+
     if (!category) {
-       next(new appError("Category not found", 404));
-       return;
+      next(new appError("Category not found", 404));
+      return;
     }
 
     res.json({

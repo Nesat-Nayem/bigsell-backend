@@ -1,32 +1,37 @@
-import mongoose, { Schema } from 'mongoose';
-import { ICategory } from './category.interface';
+import mongoose, { Schema } from "mongoose";
+import { ICategory } from "./category.interface";
 
 const CategorySchema: Schema = new Schema(
   {
-    title: { 
-      type: String, 
+    title: {
+      type: String,
       required: true,
       unique: true,
-      trim: true
+      trim: true,
     },
-    image: { 
-      type: String, 
-      required: true 
+    image: {
+      type: String,
+      required: true,
     },
-    isDeleted: { 
-      type: Boolean, 
-      default: false 
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
   },
-  { 
+  {
     timestamps: true,
-    toJSON: { 
-      transform: function(doc, ret) {
-        (ret as any).createdAt = new Date((ret as any).createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        (ret as any).updatedAt = new Date((ret as any).updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-      }
-    }
+    toJSON: {
+      transform: function (doc, ret) {
+        (ret as any).createdAt = new Date(
+          (ret as any).createdAt
+        ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+        (ret as any).updatedAt = new Date(
+          (ret as any).updatedAt
+        ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+        return ret;
+      },
+    },
   }
 );
 
-export const Category = mongoose.model<ICategory>('Category', CategorySchema);
+export const Category = mongoose.model<ICategory>("Category", CategorySchema);

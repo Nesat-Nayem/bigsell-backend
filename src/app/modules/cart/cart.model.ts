@@ -71,7 +71,6 @@ const CartSchema: Schema = new Schema(
 );
 
 // Indexes for better performance
-CartSchema.index({ user: 1 });
 CartSchema.index({ user: 1, isDeleted: 1 });
 CartSchema.index({ createdAt: -1 });
 

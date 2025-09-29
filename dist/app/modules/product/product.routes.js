@@ -34,7 +34,7 @@ const router = express_1.default.Router();
  *       401:
  *         description: Unauthorized
  */
-router.post('/', (0, authMiddleware_1.auth)('admin'), product_controller_1.createProduct);
+router.post("/", (0, authMiddleware_1.auth)("admin", "vendor"), product_controller_1.createProduct);
 /**
  * @swagger
  * /v1/api/products:
@@ -159,7 +159,10 @@ router.post('/', (0, authMiddleware_1.auth)('admin'), product_controller_1.creat
  *             schema:
  *               $ref: '#/components/schemas/ProductsListResponse'
  */
-router.get('/', product_controller_1.getAllProducts);
+// Public catalog listing (no auth)
+router.get("/", product_controller_1.getAllProducts);
+// Authenticated manage listing (admin sees all; vendor sees own)
+router.get("/manage", (0, authMiddleware_1.auth)("admin", "vendor"), product_controller_1.getManageProducts);
 /**
  * @swagger
  * /v1/api/products/search:
@@ -195,7 +198,7 @@ router.get('/', product_controller_1.getAllProducts);
  *       400:
  *         description: Search query is required
  */
-router.get('/search', product_controller_1.searchProducts);
+router.get("/search", product_controller_1.searchProducts);
 /**
  * @swagger
  * /v1/api/products/featured:
@@ -217,7 +220,7 @@ router.get('/search', product_controller_1.searchProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/featured', product_controller_1.getFeaturedProducts);
+router.get("/featured", product_controller_1.getFeaturedProducts);
 /**
  * @swagger
  * /v1/api/products/trending:
@@ -239,7 +242,7 @@ router.get('/featured', product_controller_1.getFeaturedProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/trending', product_controller_1.getTrendingProducts);
+router.get("/trending", product_controller_1.getTrendingProducts);
 /**
  * @swagger
  * /v1/api/products/new-arrivals:
@@ -261,7 +264,7 @@ router.get('/trending', product_controller_1.getTrendingProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/new-arrivals', product_controller_1.getNewArrivalProducts);
+router.get("/new-arrivals", product_controller_1.getNewArrivalProducts);
 /**
  * @swagger
  * /v1/api/products/discount:
@@ -283,7 +286,7 @@ router.get('/new-arrivals', product_controller_1.getNewArrivalProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/discount', product_controller_1.getDiscountProducts);
+router.get("/discount", product_controller_1.getDiscountProducts);
 /**
  * @swagger
  * /v1/api/products/weekly-best-selling:
@@ -305,7 +308,7 @@ router.get('/discount', product_controller_1.getDiscountProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/weekly-best-selling', product_controller_1.getWeeklyBestSellingProducts);
+router.get("/weekly-best-selling", product_controller_1.getWeeklyBestSellingProducts);
 /**
  * @swagger
  * /v1/api/products/weekly-discount:
@@ -327,7 +330,7 @@ router.get('/weekly-best-selling', product_controller_1.getWeeklyBestSellingProd
  *             schema:
  *               $ref: '#/components/schemas/ProductsResponse'
  */
-router.get('/weekly-discount', product_controller_1.getWeeklyDiscountProducts);
+router.get("/weekly-discount", product_controller_1.getWeeklyDiscountProducts);
 /**
  * @swagger
  * /v1/api/products/filters:
@@ -342,9 +345,13 @@ router.get('/weekly-discount', product_controller_1.getWeeklyDiscountProducts);
  *             schema:
  *               $ref: '#/components/schemas/ProductFiltersResponse'
  */
-router.get('/filters', product_controller_1.getProductFilters);
+router.get("/filters", product_controller_1.getProductFilters);
+// Product summary (admin only)
+router.get("/summary", (0, authMiddleware_1.auth)("admin"), product_controller_1.getProductSummary);
+// Product summary (vendor scoped)
+router.get("/summary/vendor", (0, authMiddleware_1.auth)("vendor"), product_controller_1.getVendorProductSummary);
 // Get product by slug
-router.get('/slug/:slug', product_controller_1.getProductBySlug);
+router.get("/slug/:slug", product_controller_1.getProductBySlug);
 /**
  * @swagger
  * /v1/api/products/category/{categoryId}:
@@ -393,7 +400,7 @@ router.get('/slug/:slug', product_controller_1.getProductBySlug);
  *       400:
  *         description: Invalid category ID
  */
-router.get('/category/:categoryId', product_controller_1.getProductsByCategory);
+router.get("/category/:categoryId", product_controller_1.getProductsByCategory);
 /**
  * @swagger
  * /v1/api/products/{id}:
@@ -419,7 +426,7 @@ router.get('/category/:categoryId', product_controller_1.getProductsByCategory);
  *       404:
  *         description: Product not found
  */
-router.get('/:id', product_controller_1.getProductById);
+router.get("/:id", product_controller_1.getProductById);
 /**
  * @swagger
  * /v1/api/products/{id}:
@@ -455,7 +462,8 @@ router.get('/:id', product_controller_1.getProductById);
  *       404:
  *         description: Product not found
  */
-router.put('/:id', (0, authMiddleware_1.auth)('admin'), product_controller_1.updateProduct);
+// Admin or Vendor (controller checks vendor ownership)
+router.put("/:id", (0, authMiddleware_1.auth)("admin", "vendor"), product_controller_1.updateProduct);
 /**
  * @swagger
  * /v1/api/products/{id}:
@@ -481,5 +489,5 @@ router.put('/:id', (0, authMiddleware_1.auth)('admin'), product_controller_1.upd
  *       404:
  *         description: Product not found
  */
-router.delete('/:id', (0, authMiddleware_1.auth)('admin'), product_controller_1.deleteProduct);
+router.delete("/:id", (0, authMiddleware_1.auth)("admin", "vendor"), product_controller_1.deleteProduct);
 exports.productRouter = router;
