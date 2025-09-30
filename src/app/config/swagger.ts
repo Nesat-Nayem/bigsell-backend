@@ -19,7 +19,7 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
-        url: "http://localhost:8080",
+        url: "https://api.bigsell.org",
         description: "Development server",
       },
       {

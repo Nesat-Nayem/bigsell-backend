@@ -14,6 +14,8 @@ const corsOptions: CorsOptions = {
       "https://bigselladmin.atpuae.com",
       "https://bigsellv2frontend.vercel.app",
       "https://bigsellv2admin.vercel.app",
+      "https://admin.bigsell.org",
+      "https://bigsell.org",
       "http://localhost:3000",
       "http://localhost:3001",
       "http://127.0.0.1:3000",
