@@ -19,7 +19,7 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
-        url: "https://bigsellv2backend.vercel.app",
+        url: "http://localhost:8080",
         description: "Development server",
       },
       {
