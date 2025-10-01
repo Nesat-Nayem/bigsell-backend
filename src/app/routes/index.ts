@@ -30,6 +30,7 @@ import { productCategoryRouter } from "../modules/Product-category/product-categ
 import { subscriptionRouter } from "../modules/subscription/subscription.routes";
 import { subscriptionIncludeRouter } from "../modules/subscription-include/subscription-include.routes";
 import { vendorRouter } from "../modules/vendor/vendor.routes";
+import { addressRouter } from "../modules/address/address.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -186,6 +187,10 @@ const moduleRoutes = [
   {
     path: "/vendors",
     route: vendorRouter,
+  },
+  {
+    path: "/addresses",
+    route: addressRouter,
   },
 ];
 

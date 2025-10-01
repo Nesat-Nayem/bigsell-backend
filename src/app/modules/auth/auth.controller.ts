@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { User } from "./auth.model";
 import { RequestHandler } from 'express';
-import { activateUserValidation, authValidation, emailCheckValidation, loginValidation, phoneCheckValidation, requestOtpValidation, resetPasswordValidation, updateUserValidation, verifyOtpValidation } from "./auth.validation";
+import { activateUserValidation, authValidation, emailCheckValidation, loginValidation, phoneCheckValidation, requestOtpValidation, resetPasswordValidation, updateUserValidation, verifyOtpValidation, changePasswordValidation, updateProfileValidation } from "./auth.validation";
 import { generateToken } from "../../config/generateToken";
 // import { AdminStaff } from "../admin-staff/admin-staff.model";
 
@@ -472,6 +472,201 @@ export const checkEmailExists: RequestHandler = async (req, res, next): Promise<
         exists: true,
         email: user.email
       }
+    });
+    return;
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: error.message
+    });
+    return;
+  }
+};
+
+// Get current user profile
+export const getMyProfile: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        statusCode: 401,
+        message: "Unauthorized"
+      });
+      return;
+    }
+
+    const user = await User.findById(userId, { password: 0, otp: 0, otpExpires: 0 });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      statusCode: 200,
+      message: "Profile retrieved successfully",
+      data: user
+    });
+    return;
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: error.message
+    });
+    return;
+  }
+};
+
+// Update current user profile
+export const updateMyProfile: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        statusCode: 401,
+        message: "Unauthorized"
+      });
+      return;
+    }
+
+    const cleanBody = Object.fromEntries(
+      Object.entries(req.body).filter(([_, v]) => v !== undefined && v !== null)
+    );
+
+    const validatedData = updateProfileValidation.parse(cleanBody);
+
+    // Check if email is being updated and if it already exists
+    if (validatedData.email && validatedData.email.length > 0) {
+      const existingUser = await User.findOne({
+        email: validatedData.email,
+        _id: { $ne: userId }
+      });
+
+      if (existingUser) {
+        res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: "Email already exists"
+        });
+        return;
+      }
+    }
+
+    // Check if phone is being updated and if it already exists
+    if (validatedData.phone) {
+      const existingUser = await User.findOne({
+        phone: validatedData.phone,
+        _id: { $ne: userId }
+      });
+
+      if (existingUser) {
+        res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: "Phone number already exists"
+        });
+        return;
+      }
+    }
+
+    // Remove empty email
+    if (validatedData.email === '') {
+      delete validatedData.email;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      validatedData,
+      { new: true, select: '-password -otp -otpExpires' }
+    );
+
+    if (!updatedUser) {
+      res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: "User not found"
+      });
+      return;
+    }
+
+    // Generate new token with updated user data
+    const token = generateToken(updatedUser);
+
+    res.json({
+      success: true,
+      statusCode: 200,
+      message: "Profile updated successfully",
+      token,
+      data: updatedUser
+    });
+    return;
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: error.message
+    });
+    return;
+  }
+};
+
+// Change password
+export const changePassword: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        statusCode: 401,
+        message: "Unauthorized"
+      });
+      return;
+    }
+
+    const { currentPassword, newPassword } = changePasswordValidation.parse(req.body);
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: "User not found"
+      });
+      return;
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      res.status(401).json({
+        success: false,
+        statusCode: 401,
+        message: "Current password is incorrect"
+      });
+      return;
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      statusCode: 200,
+      message: "Password changed successfully"
     });
     return;
   } catch (error: any) {

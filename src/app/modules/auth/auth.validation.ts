@@ -85,3 +85,19 @@ export const verifyOtpValidation = z.object({
   otp: z.string().length(4, "OTP must be 4 digits")
 });
 
+export const changePasswordValidation = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+});
+
+export const updateProfileValidation = z.object({
+  name: z.string().min(1).optional(),
+  email: z.union([
+    z.string().email("Invalid email format"),
+    z.string().length(0)
+  ]).optional(),
+  phone: z.string().refine(validateIndianMobile, {
+    message: "Invalid Indian mobile number. Must be 10 digits starting with 6, 7, 8, or 9"
+  }).optional(),
+  img: z.string().optional(),
+});
