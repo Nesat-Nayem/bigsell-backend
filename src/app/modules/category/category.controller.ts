@@ -69,38 +69,61 @@ export const getAllCategories = async (
   next: NextFunction
 ) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    // Check if pagination parameters are provided
+    const hasPagination = req.query.page || req.query.limit;
 
-    // Get total count for pagination
-    const total = await Category.countDocuments({ isDeleted: false });
-    const totalPages = Math.ceil(total / limit);
+    if (hasPagination) {
+      // Apply pagination
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
 
-    // Get categories with pagination
-    const categories = await Category.find({ isDeleted: false })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      // Get total count for pagination
+      const total = await Category.countDocuments({ isDeleted: false });
+      const totalPages = Math.ceil(total / limit);
 
-    if (categories.length === 0) {
-      next(new appError("No categories found", 404));
+      // Get categories with pagination
+      const categories = await Category.find({ isDeleted: false })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      if (categories.length === 0) {
+        next(new appError("No categories found", 404));
+        return;
+      }
+
+      res.json({
+        success: true,
+        statusCode: 200,
+        message: "Categories retrieved successfully",
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+        data: categories,
+      });
+      return;
+    } else {
+      // Return all categories without pagination
+      const categories = await Category.find({ isDeleted: false })
+        .sort({ createdAt: -1 });
+
+      if (categories.length === 0) {
+        next(new appError("No categories found", 404));
+        return;
+      }
+
+      res.json({
+        success: true,
+        statusCode: 200,
+        message: "Categories retrieved successfully",
+        data: categories,
+      });
       return;
     }
-
-    res.json({
-      success: true,
-      statusCode: 200,
-      message: "Categories retrieved successfully",
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-      },
-      data: categories,
-    });
-    return;
   } catch (error) {
     next(error);
   }
