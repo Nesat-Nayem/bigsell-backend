@@ -315,7 +315,7 @@ export const getDiscountProducts = async (
     const { limit = 10 } = req.query;
 
     const rawProducts = await Product.find({
-      isDiscount: true,
+      discount: { $gt: 0 },
       status: "active",
       isDeleted: false,
     })

@@ -36,7 +36,7 @@ const ProductSchema: Schema = new Schema(
     discount: {
       type: Number,
       min: 0,
-      max: 100,
+     
       default: 0,
     },
     discountType: {
