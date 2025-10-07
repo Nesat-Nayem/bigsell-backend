@@ -208,9 +208,9 @@ export const createCategory = async (
         return next(new appError("Parent category not found", 404));
       }
 
-      // Check depth limit (max 5 levels: 0-4, so parent at 4 cannot have child)
-      if (parentCategory.level >= 4) {
-        return next(new appError("Maximum category depth reached", 400));
+      // Enforce max depth of 2 (0=root, 1=sub, 2=sub-sub)
+      if ((parentCategory.level || 0) >= 2) {
+        return next(new appError("Maximum category depth is 2", 400));
       }
     }
 
@@ -446,6 +446,27 @@ export const updateCategoryById = async (
         const descendants = await (category as any).getDescendants();
         if (descendants.some((d: any) => d._id.equals(newParent._id))) {
           return next(new appError("Cannot set a descendant as parent", 400));
+        }
+
+        // Enforce max depth: new level cannot exceed 2
+        const prospectiveLevel = (newParent.level || 0) + 1;
+        if (prospectiveLevel > 2) {
+          return next(new appError("Maximum category depth is 2", 400));
+        }
+
+        // Ensure descendants will not exceed depth 2 after this move
+        const delta = prospectiveLevel - (category.level || 0);
+        if (delta > 0 && category.path) {
+          const deepestDescendant = await Category.findOne({
+            path: new RegExp(`^${category.path}/`),
+            isDeleted: false,
+          })
+            .sort({ level: -1 })
+            .lean();
+          const deepestLevel = (deepestDescendant?.level as number) || category.level || 0;
+          if (deepestLevel + delta > 2) {
+            return next(new appError("Re-parenting would exceed maximum depth (2) for one or more descendants", 400));
+          }
         }
       }
       category.parentId = newParent ? new mongoose.Types.ObjectId(newParent._id) : null;
