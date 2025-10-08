@@ -63,6 +63,12 @@ const ProductSchema: Schema = new Schema(
       required: false,
       index: true,
     },
+    subSubcategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      required: false,
+      index: true,
+    },
     brand: {
       type: String,
       trim: true,

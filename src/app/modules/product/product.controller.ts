@@ -56,7 +56,8 @@ export const createProduct = async (
     const result = await Product.create(productData);
     const populatedResult = await Product.findById(result._id)
       .populate("category", "title")
-      .populate("subcategory", "title");
+      .populate("subcategory", "title")
+      .populate("subSubcategory", "title");
 
     res.status(201).json({
       success: true,
@@ -181,20 +182,31 @@ export const getManageProducts = async (
           .map((id: any) => String(id))
       )
     );
-
-    const [catDocs, subDocs] = await Promise.all([
+    const subSubIds = Array.from(
+      new Set(
+        rawProducts
+          .map((p: any) => p.subSubcategory)
+          .filter((id: any) => id && mongoose.Types.ObjectId.isValid(String(id)))
+          .map((id: any) => String(id))
+      )
+    );
+    const [catDocs, subDocs, subSubDocs] = await Promise.all([
       ProductCategory.find({ _id: { $in: catIds } }, { _id: 1, title: 1 }).lean(),
       ProductCategory.find({ _id: { $in: subIds } }, { _id: 1, title: 1 }).lean(),
+      ProductCategory.find({ _id: { $in: subSubIds } }, { _id: 1, title: 1 }).lean(),
     ]);
     const catMap = new Map(catDocs.map((c: any) => [String(c._id), c.title]));
     const subMap = new Map(subDocs.map((c: any) => [String(c._id), c.title]));
+    const subSubMap = new Map(subSubDocs.map((c: any) => [String(c._id), c.title]));
 
     const products = rawProducts.map((p: any) => {
       const out: any = { ...p };
       const catId = p.category ? String(p.category) : null;
       const subId = p.subcategory ? String(p.subcategory) : null;
+      const subSubId = p.subSubcategory ? String(p.subSubcategory) : null;
       if (catId && catMap.has(catId)) out.category = { _id: catId, title: catMap.get(catId) };
       if (subId && subMap.has(subId)) out.subcategory = { _id: subId, title: subMap.get(subId) };
+      if (subSubId && subSubMap.has(subSubId)) out.subSubcategory = { _id: subSubId, title: subSubMap.get(subSubId) };
       return out;
     });
 
@@ -324,18 +336,23 @@ export const getDiscountProducts = async (
       .lean();
     const catIds = Array.from(new Set(rawProducts.map((p: any) => p.category).filter((id: any) => id && mongoose.Types.ObjectId.isValid(String(id))).map(String)));
     const subIds = Array.from(new Set(rawProducts.map((p: any) => p.subcategory).filter((id: any) => id && mongoose.Types.ObjectId.isValid(String(id))).map(String)));
-    const [catDocs, subDocs] = await Promise.all([
+    const subSubIds = Array.from(new Set(rawProducts.map((p: any) => p.subSubcategory).filter((id: any) => id && mongoose.Types.ObjectId.isValid(String(id))).map(String)));
+    const [catDocs, subDocs, subSubDocs] = await Promise.all([
       ProductCategory.find({ _id: { $in: catIds } }, { _id: 1, title: 1 }).lean(),
       ProductCategory.find({ _id: { $in: subIds } }, { _id: 1, title: 1 }).lean(),
+      ProductCategory.find({ _id: { $in: subSubIds } }, { _id: 1, title: 1 }).lean(),
     ]);
     const catMap = new Map(catDocs.map((c: any) => [String(c._id), c.title]));
     const subMap = new Map(subDocs.map((c: any) => [String(c._id), c.title]));
+    const subSubMap = new Map(subSubDocs.map((c: any) => [String(c._id), c.title]));
     const products = rawProducts.map((p: any) => {
       const out: any = { ...p };
       const catId = p.category ? String(p.category) : null;
       const subId = p.subcategory ? String(p.subcategory) : null;
+      const subSubId = p.subSubcategory ? String(p.subSubcategory) : null;
       if (catId && catMap.has(catId)) out.category = { _id: catId, title: catMap.get(catId) };
       if (subId && subMap.has(subId)) out.subcategory = { _id: subId, title: subMap.get(subId) };
+      if (subSubId && subSubMap.has(subSubId)) out.subSubcategory = { _id: subSubId, title: subSubMap.get(subSubId) };
       return out;
     });
 
@@ -455,6 +472,7 @@ export const getProductBySlug = async (
     const product = await Product.findOne({ slug, isDeleted: false })
       .populate("category", "title")
       .populate("subcategory", "title")
+      .populate("subSubcategory", "title")
       .lean();
 
     if (!product) {
@@ -589,13 +607,22 @@ export const getAllProducts = async (
           .map((id: any) => String(id))
       )
     );
-
-    const [catDocs, subDocs] = await Promise.all([
+    const subSubIds = Array.from(
+      new Set(
+        rawProducts
+          .map((p: any) => p.subSubcategory)
+          .filter((id: any) => id && mongoose.Types.ObjectId.isValid(String(id)))
+          .map((id: any) => String(id))
+      )
+    );
+    const [catDocs, subDocs, subSubDocs] = await Promise.all([
       ProductCategory.find({ _id: { $in: catIds } }, { _id: 1, title: 1 }).lean(),
       ProductCategory.find({ _id: { $in: subIds } }, { _id: 1, title: 1 }).lean(),
+      ProductCategory.find({ _id: { $in: subSubIds } }, { _id: 1, title: 1 }).lean(),
     ]);
     const catMap = new Map(catDocs.map((c: any) => [String(c._id), c.title]));
     const subMap = new Map(subDocs.map((c: any) => [String(c._id), c.title]));
+    const subSubMap = new Map(subSubDocs.map((c: any) => [String(c._id), c.title]));
 
     const products = rawProducts.map((p: any) => {
       const out: any = { ...p };
@@ -643,6 +670,7 @@ export const getProductById = async (
     const product = await Product.findOne({ _id: id, isDeleted: false })
       .populate("category", "title")
       .populate("subcategory", "title")
+      .populate("subSubcategory", "title")
       .lean();
 
     if (!product) {
@@ -742,7 +770,8 @@ export const updateProduct = async (
       runValidators: true,
     })
       .populate("category", "title")
-      .populate("subcategory", "title");
+      .populate("subcategory", "title")
+      .populate("subSubcategory", "title");
 
     res.status(200).json({
       success: true,

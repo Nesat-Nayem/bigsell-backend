@@ -12,6 +12,7 @@ export interface IProduct extends Document {
   sku: string;
   category: string;
   subcategory?: string;
+  subSubcategory?: string;
   brand?: string;
   images: string[];
   thumbnail: string;
