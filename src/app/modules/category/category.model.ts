@@ -13,6 +13,22 @@ const CategorySchema: Schema = new Schema(
       type: String,
       required: true,
     },
+    // Link to Product Categories
+    productCategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      required: true,
+    },
+    productSubcategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      default: null,
+    },
+    productSubSubcategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      default: null,
+    },
     isDeleted: {
       type: Boolean,
       default: false,

@@ -13,7 +13,7 @@ export const createCategory = async (
   next: NextFunction
 ) => {
   try {
-    const { title } = req.body;
+    const { title, productCategory, productSubcategory, productSubSubcategory } = req.body;
 
     // Check if category with same title already exists
     const existingCategory = await Category.findOne({
@@ -34,13 +34,16 @@ export const createCategory = async (
     // Get the image URL from req.file
     const image = req.file.path;
 
-    // Validate the input
+    // Validate the input (productCategory required, sub levels optional)
     const validatedData = categoryValidation.parse({
       title,
       image,
+      productCategory,
+      productSubcategory,
+      productSubSubcategory,
     });
 
-    // Create a new category
+    // Create a new Home Category with links to ProductCategory hierarchy
     const category = new Category(validatedData);
     await category.save();
 
@@ -176,7 +179,7 @@ export const updateCategoryById = async (
     }
 
     // Prepare update data
-    const updateData: { title?: string; image?: string } = {};
+    const updateData: { title?: string; image?: string; productCategory?: string; productSubcategory?: string; productSubSubcategory?: string } = {};
 
     if (req.body.title) {
       // Check if new title already exists
@@ -208,6 +211,17 @@ export const updateCategoryById = async (
           );
         }
       }
+    }
+
+    // Optional: product category links
+    if (typeof req.body.productCategory !== 'undefined') {
+      updateData.productCategory = req.body.productCategory;
+    }
+    if (typeof req.body.productSubcategory !== 'undefined') {
+      updateData.productSubcategory = req.body.productSubcategory;
+    }
+    if (typeof req.body.productSubSubcategory !== 'undefined') {
+      updateData.productSubSubcategory = req.body.productSubSubcategory;
     }
 
     // Validate the update data
