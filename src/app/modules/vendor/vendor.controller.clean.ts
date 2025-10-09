@@ -129,14 +129,25 @@ export const updateKycStatus: RequestHandler = async (req, res, next) => {
     doc.kycStatus = parsed.kycStatus
 
     if (parsed.kycStatus === 'approved' && !doc.credentialSent) {
-      const generatedPassword = crypto.randomBytes(6).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
+      const generatedPassword = crypto
+        .randomBytes(6)
+        .toString('base64')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 10)
 
-      let user = await User.findOne({ email: doc.email })
+      // Find existing user by email OR phone to avoid duplicate key errors
+      let user = await User.findOne({
+        $or: [
+          ...(doc.email ? [{ email: doc.email }] : []),
+          ...(doc.phone ? [{ phone: doc.phone }] : []),
+        ],
+      } as any)
+
       if (!user) {
         user = new User({
-          name: doc.vendorName,
-          email: doc.email,
-          phone: doc.phone,
+          name: (doc as any).vendorName,
+          email: (doc as any).email,
+          phone: (doc as any).phone, // phone is unique and required in schema
           password: generatedPassword,
           role: 'vendor',
           status: 'active',
@@ -146,23 +157,27 @@ export const updateKycStatus: RequestHandler = async (req, res, next) => {
         user.password = generatedPassword
         ;(user as any).status = 'active'
       }
-      await user.save()
-      ;(doc as any).vendorUserId = user._id
 
-      try {
-        await sendMail({
-          to: doc.email,
-          subject: 'Your Vendor Account has been approved',
-          html: `<p>Dear ${doc.vendorName},</p>
+      await user.save()
+      ;(doc as any).vendorUserId = (user as any)._id
+
+      // Send credentials via email if email exists
+      if ((doc as any).email) {
+        try {
+          await sendMail({
+            to: (doc as any).email,
+            subject: 'Your Vendor Account has been approved',
+            html: `<p>Dear ${(doc as any).vendorName},</p>
 <p>Your KYC has been approved. You can now login using the following credentials:</p>
-<p><strong>Email:</strong> ${doc.email}<br/>
+<p><strong>Email:</strong> ${(doc as any).email}<br/>
 <strong>Password:</strong> ${generatedPassword}</p>
 <p>Please login and change your password immediately.</p>
 <p>Regards,<br/>Support Team</p>`,
-        })
-        doc.credentialSent = true
-      } catch (mailErr) {
-        console.error('Email send failed:', mailErr)
+          })
+          doc.credentialSent = true
+        } catch (mailErr) {
+          console.error('Email send failed:', mailErr)
+        }
       }
     }
 
