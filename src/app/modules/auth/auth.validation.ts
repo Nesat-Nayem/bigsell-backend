@@ -57,6 +57,17 @@ export const emailCheckValidation = z.object({
   email: z.string().email("Invalid email format")
 });
 
+// Forgot/Reset via Email
+export const requestResetEmailValidation = z.object({
+  email: z.string().email("Invalid email format"),
+});
+
+export const confirmResetEmailValidation = z.object({
+  email: z.string().email("Invalid email format"),
+  otp: z.string().length(4, "OTP must be 4 digits"),
+  newPassword: z.string().min(6),
+});
+
 export const updateUserValidation = z.object({
   name: z.string().optional(),
   phone: z.string().refine(validateIndianMobile, {

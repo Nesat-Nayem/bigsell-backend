@@ -13,7 +13,9 @@ import {
   verifyOtp,
   getMyProfile,
   updateMyProfile,
-  changePassword
+  changePassword,
+  requestResetPasswordEmail,
+  confirmResetPasswordEmail,
 } from "./auth.controller";
 import { auth } from "../../middlewares/authMiddleware";
 
@@ -215,6 +217,10 @@ router.get("/user/:id", auth(), getUserById);
  *         description: Bad request
  */
 router.post("/reset-password", resetPassword);
+
+// Email-based forgot/reset password
+router.post('/forgot-password-email', requestResetPasswordEmail)
+router.post('/reset-password-email', confirmResetPasswordEmail)
 
 // /**
 //  * @swagger

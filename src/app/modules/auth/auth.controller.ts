@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { User } from "./auth.model";
 import { RequestHandler } from 'express';
-import { activateUserValidation, authValidation, emailCheckValidation, loginValidation, phoneCheckValidation, requestOtpValidation, resetPasswordValidation, updateUserValidation, verifyOtpValidation, changePasswordValidation, updateProfileValidation } from "./auth.validation";
+import { activateUserValidation, authValidation, emailCheckValidation, loginValidation, phoneCheckValidation, requestOtpValidation, resetPasswordValidation, updateUserValidation, verifyOtpValidation, changePasswordValidation, updateProfileValidation, requestResetEmailValidation, confirmResetEmailValidation } from "./auth.validation";
 import { generateToken } from "../../config/generateToken";
+import { sendMail } from '../../services/mailService'
 // import { AdminStaff } from "../admin-staff/admin-staff.model";
 
 export const singUpController: RequestHandler = async (req, res, next): Promise<void> => {
@@ -58,6 +59,71 @@ export const singUpController: RequestHandler = async (req, res, next): Promise<
     });
   }
 };
+
+// Request password reset via email (send OTP)
+export const requestResetPasswordEmail: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const { email } = requestResetEmailValidation.parse(req.body)
+
+    const user = await User.findOne({ email })
+    if (!user) {
+      res.status(404).json({ success: false, statusCode: 404, message: 'Email not found' })
+      return
+    }
+
+    const otp = generateOTP()
+    user.otp = otp
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 min
+    await user.save()
+
+    // Send OTP email
+    await sendMail({
+      to: email,
+      subject: 'Password Reset Code',
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+  <h2 style="margin:0 0 12px">Reset your password</h2>
+  <p style="margin:0 0 16px">Use the following code to reset your password. This code expires in 10 minutes.</p>
+  <div style="font-size:32px;font-weight:700;letter-spacing:4px;background:#f5f5f5;padding:12px 16px;border-radius:8px;text-align:center">${otp}</div>
+  <p style="color:#666;margin-top:16px">If you did not request this, you can ignore this email.</p>
+</div>`
+    })
+
+    res.json({ success: true, statusCode: 200, message: 'Reset code sent to email' })
+    return
+  } catch (error: any) {
+    res.status(400).json({ success: false, statusCode: 400, message: error.message })
+    return
+  }
+}
+
+// Confirm email OTP and reset password
+export const confirmResetPasswordEmail: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const { email, otp, newPassword } = confirmResetEmailValidation.parse(req.body)
+
+    const user = await User.findOne({ email })
+    if (!user) {
+      res.status(404).json({ success: false, statusCode: 404, message: 'User not found' })
+      return
+    }
+
+    if (!user.compareOtp(otp)) {
+      res.status(401).json({ success: false, statusCode: 401, message: 'Invalid or expired OTP' })
+      return
+    }
+
+    user.password = newPassword
+    user.otp = undefined
+    user.otpExpires = undefined
+    await user.save()
+
+    res.json({ success: true, statusCode: 200, message: 'Password reset successfully' })
+    return
+  } catch (error: any) {
+    res.status(400).json({ success: false, statusCode: 400, message: error.message })
+    return
+  }
+}
 
 
 // Add these functions to your existing controller file
