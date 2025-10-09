@@ -8,7 +8,7 @@ export const vendorApplyValidation = z.object({
   gstNo: z.string().optional(),
 
   subscriptionId: z.string().optional(),
-  planName: z.string().min(1),
+  planName: z.string().min(1).optional(),
   planPrice: z.number().optional(),
   planBillingCycle: z.enum(['monthly', 'yearly']).optional(),
   planColor: z.string().optional(),
