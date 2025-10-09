@@ -46,6 +46,22 @@ const CategorySchema = new mongoose_1.Schema({
         type: String,
         required: true,
     },
+    // Link to Product Categories
+    productCategory: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "ProductCategory",
+        required: true,
+    },
+    productSubcategory: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "ProductCategory",
+        default: null,
+    },
+    productSubSubcategory: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "ProductCategory",
+        default: null,
+    },
     isDeleted: {
         type: Boolean,
         default: false,

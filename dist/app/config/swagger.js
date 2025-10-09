@@ -22,12 +22,12 @@ const options = {
         },
         servers: [
             {
-                url: "https://bigsellv2backend.vercel.app",
+                url: "https://api.bigsell.org",
                 description: "Development server",
             },
             {
-                url: "https://bigsellv2backend.vercel.app",
-                description: "Production server (Vercel)",
+                url: "https://api.bigsell.org",
+                description: "Production server main",
             },
             {
                 url: "https://api.atpuae.com",

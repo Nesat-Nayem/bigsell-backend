@@ -111,7 +111,7 @@ const CategorySchema = new mongoose_1.Schema({
         required: true,
         default: 0,
         min: 0,
-        max: 5, // Maximum depth of 5 levels
+        max: 2, // Maximum depth of 2 levels (0=root, 1=sub, 2=sub-sub)
     },
     path: {
         type: String,

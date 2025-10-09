@@ -7,13 +7,13 @@ const handleDuplicateError = (err) => {
     const errorSources = [
         {
             path: "",
-            message: `${extractedMessage} is already exists`,
+            message: extractedMessage ? `${extractedMessage} already exists` : 'Duplicate key value',
         },
     ];
     const statusCode = 400;
     return {
         statusCode,
-        message: "Invalid ID",
+        message: extractedMessage ? `${extractedMessage} already exists` : 'Duplicate key error',
         errorSources,
     };
 };

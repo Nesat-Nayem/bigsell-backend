@@ -140,13 +140,23 @@ const updateKycStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
             return next(new appError_1.appError('Vendor application not found', 404));
         doc.kycStatus = parsed.kycStatus;
         if (parsed.kycStatus === 'approved' && !doc.credentialSent) {
-            const generatedPassword = crypto_1.default.randomBytes(6).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
-            let user = yield auth_model_1.User.findOne({ email: doc.email });
+            const generatedPassword = crypto_1.default
+                .randomBytes(6)
+                .toString('base64')
+                .replace(/[^a-zA-Z0-9]/g, '')
+                .slice(0, 10);
+            // Find existing user by email OR phone to avoid duplicate key errors
+            let user = yield auth_model_1.User.findOne({
+                $or: [
+                    ...(doc.email ? [{ email: doc.email }] : []),
+                    ...(doc.phone ? [{ phone: doc.phone }] : []),
+                ],
+            });
             if (!user) {
                 user = new auth_model_1.User({
                     name: doc.vendorName,
                     email: doc.email,
-                    phone: doc.phone,
+                    phone: doc.phone, // phone is unique and required in schema
                     password: generatedPassword,
                     role: 'vendor',
                     status: 'active',
@@ -160,21 +170,24 @@ const updateKycStatus = (req, res, next) => __awaiter(void 0, void 0, void 0, fu
             }
             yield user.save();
             doc.vendorUserId = user._id;
-            try {
-                yield (0, mailService_1.sendMail)({
-                    to: doc.email,
-                    subject: 'Your Vendor Account has been approved',
-                    html: `<p>Dear ${doc.vendorName},</p>
+            // Send credentials via email if email exists
+            if (doc.email) {
+                try {
+                    yield (0, mailService_1.sendMail)({
+                        to: doc.email,
+                        subject: 'Your Vendor Account has been approved',
+                        html: `<p>Dear ${doc.vendorName},</p>
 <p>Your KYC has been approved. You can now login using the following credentials:</p>
 <p><strong>Email:</strong> ${doc.email}<br/>
 <strong>Password:</strong> ${generatedPassword}</p>
 <p>Please login and change your password immediately.</p>
 <p>Regards,<br/>Support Team</p>`,
-                });
-                doc.credentialSent = true;
-            }
-            catch (mailErr) {
-                console.error('Email send failed:', mailErr);
+                    });
+                    doc.credentialSent = true;
+                }
+                catch (mailErr) {
+                    console.error('Email send failed:', mailErr);
+                }
             }
         }
         yield doc.save();

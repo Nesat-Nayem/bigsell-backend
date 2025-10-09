@@ -10,26 +10,56 @@ const notFound_1 = __importDefault(require("./app/middlewares/notFound"));
 const globalErrorHandler_1 = __importDefault(require("./app/middlewares/globalErrorHandler"));
 const swagger_1 = require("./app/config/swagger");
 const app = (0, express_1.default)();
-// CORS configuration
-const getAllowedOrigins = () => {
-    // Default development origins
-    const defaultOrigins = ["*"];
-    // Production origins
-    const productionOrigins = ["*"];
-    // Environment-based origins
-    const envOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
-        : [];
-    // Combine all origins
-    return [...defaultOrigins, ...productionOrigins, ...envOrigins];
-};
+// CORS configuration for specific domains
 const corsOptions = {
-    origin: true,
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            "https://bigsell.atpuae.com",
+            "https://bigselladmin.atpuae.com",
+            "https://bigsellv2frontend.vercel.app",
+            "https://bigsellv2admin.vercel.app",
+            "https://admin.bigsell.org",
+            "https://bigsell.org",
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001"
+        ];
+        // Allow requests with no origin (like mobile apps, Postman, or curl)
+        if (!origin)
+            return callback(null, true);
+        // Allow all localhost/127.0.0.1 origins in development
+        if (process.env.NODE_ENV !== 'production') {
+            if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                return callback(null, true);
+            }
+        }
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
-    optionsSuccessStatus: 200,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+        "Origin",
+        "X-Requested-With",
+        "Content-Type",
+        "Accept",
+        "Authorization",
+        "Cache-Control",
+        "Pragma",
+        "X-CSRF-Token",
+        "X-User-Role"
+    ],
+    exposedHeaders: ["Content-Disposition", "X-Total-Count"],
+    optionsSuccessStatus: 204,
+    preflightContinue: false,
 };
-// CORS middleware - Apply before other middlewares
 app.use((0, cors_1.default)(corsOptions));
+app.options("*", (0, cors_1.default)(corsOptions));
 // Body parsers
 app.use(express_1.default.json({ limit: "50mb" }));
 app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));

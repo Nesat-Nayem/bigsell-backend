@@ -200,6 +200,9 @@ router.get("/user/:id", (0, authMiddleware_1.auth)(), auth_controller_1.getUserB
  *         description: Bad request
  */
 router.post("/reset-password", auth_controller_1.resetPassword);
+// Email-based forgot/reset password
+router.post('/forgot-password-email', auth_controller_1.requestResetPasswordEmail);
+router.post('/reset-password-email', auth_controller_1.confirmResetPasswordEmail);
 // /**
 //  * @swagger
 //  * /v1/api/auth/activate-user:
@@ -366,4 +369,78 @@ router.post("/request-otp", auth_controller_1.requestOtp);
  *         description: Invalid OTP
  */
 router.post("/verify-otp", auth_controller_1.verifyOtp);
+/**
+ * @swagger
+ * /v1/api/auth/profile:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/profile", (0, authMiddleware_1.auth)(), auth_controller_1.getMyProfile);
+/**
+ * @swagger
+ * /v1/api/auth/profile:
+ *   put:
+ *     summary: Update current user profile
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               img:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Bad request
+ */
+router.put("/profile", (0, authMiddleware_1.auth)(), auth_controller_1.updateMyProfile);
+/**
+ * @swagger
+ * /v1/api/auth/change-password:
+ *   post:
+ *     summary: Change user password
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       401:
+ *         description: Current password is incorrect
+ */
+router.post("/change-password", (0, authMiddleware_1.auth)(), auth_controller_1.changePassword);
 exports.authRouter = router;

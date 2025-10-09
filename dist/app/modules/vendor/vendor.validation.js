@@ -9,7 +9,7 @@ exports.vendorApplyValidation = zod_1.z.object({
     address: zod_1.z.string().min(1),
     gstNo: zod_1.z.string().optional(),
     subscriptionId: zod_1.z.string().optional(),
-    planName: zod_1.z.string().min(1),
+    planName: zod_1.z.string().min(1).optional(),
     planPrice: zod_1.z.number().optional(),
     planBillingCycle: zod_1.z.enum(['monthly', 'yearly']).optional(),
     planColor: zod_1.z.string().optional(),

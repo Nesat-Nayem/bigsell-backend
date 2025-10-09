@@ -17,7 +17,7 @@ const cloudinary_1 = require("../../config/cloudinary");
 const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     try {
-        const { title } = req.body;
+        const { title, productCategory, productSubcategory, productSubSubcategory } = req.body;
         // Check if category with same title already exists
         const existingCategory = yield category_model_1.Category.findOne({
             title,
@@ -34,12 +34,15 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
         }
         // Get the image URL from req.file
         const image = req.file.path;
-        // Validate the input
+        // Validate the input (productCategory required, sub levels optional)
         const validatedData = category_validation_1.categoryValidation.parse({
             title,
             image,
+            productCategory,
+            productSubcategory,
+            productSubSubcategory,
         });
-        // Create a new category
+        // Create a new Home Category with links to ProductCategory hierarchy
         const category = new category_model_1.Category(validatedData);
         yield category.save();
         res.status(201).json({
@@ -64,34 +67,55 @@ const createCategory = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
 exports.createCategory = createCategory;
 const getAllCategories = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-        // Get total count for pagination
-        const total = yield category_model_1.Category.countDocuments({ isDeleted: false });
-        const totalPages = Math.ceil(total / limit);
-        // Get categories with pagination
-        const categories = yield category_model_1.Category.find({ isDeleted: false })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
-        if (categories.length === 0) {
-            next(new appError_1.appError("No categories found", 404));
+        // Check if pagination parameters are provided
+        const hasPagination = req.query.page || req.query.limit;
+        if (hasPagination) {
+            // Apply pagination
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const skip = (page - 1) * limit;
+            // Get total count for pagination
+            const total = yield category_model_1.Category.countDocuments({ isDeleted: false });
+            const totalPages = Math.ceil(total / limit);
+            // Get categories with pagination
+            const categories = yield category_model_1.Category.find({ isDeleted: false })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+            if (categories.length === 0) {
+                next(new appError_1.appError("No categories found", 404));
+                return;
+            }
+            res.json({
+                success: true,
+                statusCode: 200,
+                message: "Categories retrieved successfully",
+                meta: {
+                    page,
+                    limit,
+                    total,
+                    totalPages,
+                },
+                data: categories,
+            });
             return;
         }
-        res.json({
-            success: true,
-            statusCode: 200,
-            message: "Categories retrieved successfully",
-            meta: {
-                page,
-                limit,
-                total,
-                totalPages,
-            },
-            data: categories,
-        });
-        return;
+        else {
+            // Return all categories without pagination
+            const categories = yield category_model_1.Category.find({ isDeleted: false })
+                .sort({ createdAt: -1 });
+            if (categories.length === 0) {
+                next(new appError_1.appError("No categories found", 404));
+                return;
+            }
+            res.json({
+                success: true,
+                statusCode: 200,
+                message: "Categories retrieved successfully",
+                data: categories,
+            });
+            return;
+        }
     }
     catch (error) {
         next(error);
@@ -161,6 +185,16 @@ const updateCategoryById = (req, res, next) => __awaiter(void 0, void 0, void 0,
                     yield cloudinary_1.cloudinary.uploader.destroy(`restaurant-categories/${publicId}`);
                 }
             }
+        }
+        // Optional: product category links
+        if (typeof req.body.productCategory !== 'undefined') {
+            updateData.productCategory = req.body.productCategory;
+        }
+        if (typeof req.body.productSubcategory !== 'undefined') {
+            updateData.productSubcategory = req.body.productSubcategory;
+        }
+        if (typeof req.body.productSubSubcategory !== 'undefined') {
+            updateData.productSubSubcategory = req.body.productSubSubcategory;
         }
         // Validate the update data
         if (Object.keys(updateData).length > 0) {

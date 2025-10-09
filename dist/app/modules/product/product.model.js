@@ -69,7 +69,6 @@ const ProductSchema = new mongoose_1.Schema({
     discount: {
         type: Number,
         min: 0,
-        max: 100,
         default: 0,
     },
     discountType: {
@@ -91,6 +90,12 @@ const ProductSchema = new mongoose_1.Schema({
         index: true,
     },
     subcategory: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "ProductCategory",
+        required: false,
+        index: true,
+    },
+    subSubcategory: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "ProductCategory",
         required: false,
