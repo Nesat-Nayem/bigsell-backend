@@ -22,11 +22,11 @@ const options = {
         },
         servers: [
             {
-                url: "https://api.bigsell.org",
+                url: "http://localhost:8080",
                 description: "Development server",
             },
             {
-                url: "https://api.bigsell.org",
+                url: "http://localhost:8080",
                 description: "Production server main",
             },
             {
