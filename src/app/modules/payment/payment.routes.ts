@@ -8,6 +8,8 @@ import {
   refundPayment,
   handleWebhook,
   getPaymentSummary,
+  initiateCashfreePayment,
+  handleCashfreeReturn,
 } from './payment.controller';
 import { auth } from '../../middlewares/authMiddleware';
 
@@ -94,6 +96,12 @@ router.post('/', auth(), createPayment);
  *         description: Payment not found
  */
 router.post('/verify', auth(), verifyPayment);
+
+// Cashfree: initiate payment for an existing order
+router.post('/cashfree/initiate', auth(), initiateCashfreePayment);
+
+// Cashfree: return URL handler (no auth; Cashfree redirects users here)
+router.get('/cashfree/return', handleCashfreeReturn);
 
 /**
  * @swagger

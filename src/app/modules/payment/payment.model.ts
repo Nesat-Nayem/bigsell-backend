@@ -101,7 +101,7 @@ const PaymentGatewayResponseSchema: Schema = new Schema(
     error_source: String,
     error_step: String,
     error_reason: String,
-    created_at: Number,
+    created_at: Schema.Types.Mixed,
   },
   { _id: false }
 );
@@ -115,6 +115,13 @@ const PaymentSchema: Schema = new Schema(
       required: true,
       unique: true,
       trim: true,
+      default: function () {
+        const timestamp = Date.now().toString();
+        const random = Math.floor(Math.random() * 1000)
+          .toString()
+          .padStart(3, "0");
+        return `PAY-${timestamp}-${random}`;
+      },
     },
     orderId: {
       type: Schema.Types.ObjectId,
@@ -161,7 +168,7 @@ const PaymentSchema: Schema = new Schema(
     },
     gateway: {
       type: String,
-      enum: ["razorpay", "ccavenue", "paytm", "cash_on_delivery"],
+      enum: ["razorpay", "ccavenue", "paytm", "cashfree", "cash_on_delivery"],
       required: true,
       default: "razorpay",
     },

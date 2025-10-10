@@ -4,6 +4,7 @@ import { Order } from '../order/order.model';
 import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
 import crypto from 'crypto';
+import { createCashfreeOrder, fetchCashfreeOrder, getReturnUrl as getCFReturnUrl } from './gateways/cashfree';
 
 // Razorpay configuration (you'll need to install razorpay package)
 // npm install razorpay @types/razorpay
@@ -138,6 +139,154 @@ export const createPayment = async (
       data: response,
     });
     return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cashfree: initiate payment for an existing order
+export const initiateCashfreePayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = (req as any).user?._id;
+    const { orderId } = req.body as { orderId: string };
+
+    if (!userId) {
+      next(new appError('User not authenticated', 401));
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      next(new appError('Invalid order ID', 400));
+      return;
+    }
+
+    const order = await Order.findOne({ _id: orderId, user: userId, isDeleted: false });
+    if (!order) {
+      next(new appError('Order not found', 404));
+      return;
+    }
+
+    // Prevent duplicate active payments
+    const existingPayment = await Payment.findOne({
+      orderId,
+      gateway: 'cashfree',
+      status: { $in: ['pending', 'processing', 'completed'] },
+      isDeleted: false,
+    });
+    if (existingPayment) {
+      next(new appError('Payment already exists for this order', 400));
+      return;
+    }
+
+    const returnUrl = getCFReturnUrl(req, orderId);
+    const cfOrder = await createCashfreeOrder({
+      orderAmount: (order as any).totalAmount,
+      currency: 'INR',
+      customer: {
+        id: String(userId),
+        name: ((order as any)?.user?.name) || '',
+        email: ((order as any)?.shippingAddress?.email) || '',
+        phone: ((order as any)?.shippingAddress?.phone) || '',
+      },
+      returnUrl,
+      notes: { orderNumber: (order as any).orderNumber, ourOrderId: orderId },
+    });
+
+    // Create payment record
+    const payment = new Payment({
+      orderId,
+      userId,
+      amount: Math.round((order as any).totalAmount * 100),
+      currency: 'INR',
+      method: 'card',
+      gateway: 'cashfree',
+      status: 'pending',
+      gatewayOrderId: cfOrder?.order_id,
+      description: `Cashfree payment for order ${(order as any).orderNumber}`,
+      notes: { cf: { order_id: cfOrder?.order_id } },
+      customerEmail: ((order as any)?.shippingAddress?.email) || '',
+      customerPhone: ((order as any)?.shippingAddress?.phone) || '',
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    } as any);
+    await payment.save();
+
+    res.status(201).json({
+      success: true,
+      statusCode: 201,
+      message: 'Cashfree payment initiated successfully',
+      data: {
+        paymentId: (payment as any).paymentId,
+        orderId: (payment as any).orderId,
+        gateway: 'cashfree',
+        status: (payment as any).status,
+        cashfreeOrderId: cfOrder?.order_id,
+        paymentSessionId: cfOrder?.payment_session_id,
+      },
+    });
+    return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cashfree: return URL handler (redirect flow)
+export const handleCashfreeReturn = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const ourOrderId = String(req.query.our_order_id || '');
+    if (!ourOrderId || !mongoose.Types.ObjectId.isValid(ourOrderId)) {
+      return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + '/account?tab=orders&payment=invalid');
+    }
+
+    // Find the latest cashfree payment for this order
+    const payment = await Payment.findOne({ orderId: ourOrderId, gateway: 'cashfree', isDeleted: false }).sort('-createdAt');
+    if (!payment || !(payment as any).gatewayOrderId) {
+      return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + `/orders/${ourOrderId}?payment=missing`);
+    }
+
+    // Fetch order status from Cashfree
+    let cfOrder: any;
+    try {
+      cfOrder = await fetchCashfreeOrder(((payment as any).gatewayOrderId) as string);
+    } catch (e) {
+      await (payment as any).markFailed('Cashfree fetch order failed', 'CF_FETCH_FAILED');
+      return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + `/orders/${ourOrderId}?payment=failed`);
+    }
+
+    const status = String(cfOrder?.order_status || cfOrder?.status || '').toUpperCase();
+    const isPaid = status === 'PAID' || status === 'COMPLETED' || status === 'SUCCESS';
+
+    // Update payment record
+    if (isPaid) {
+      await (payment as any).markCompleted(cfOrder);
+    } else {
+      await (payment as any).markFailed(`Status: ${status || 'UNKNOWN'}`, 'CF_STATUS');
+    }
+
+    // Update order payment status
+    const order = await Order.findById(ourOrderId);
+    if (order) {
+      order.paymentStatus = isPaid ? 'paid' : 'failed';
+      (order as any).paymentInfo.status = isPaid ? 'completed' : 'failed';
+      (order as any).paymentInfo.transactionId = (payment as any).gatewayPaymentId || (payment as any).gatewayOrderId || (payment as any).paymentId;
+      (order as any).paymentInfo.paymentDate = isPaid ? new Date() : (order as any).paymentInfo.paymentDate;
+      await order.save();
+    }
+
+    const webBase = process.env.WEB_BASE_URL || 'http://localhost:3000';
+    if (isPaid) {
+      return res.redirect(`${webBase}/orders/${ourOrderId}?payment=success`);
+    } else {
+      return res.redirect(`${webBase}/orders/${ourOrderId}?payment=failed`);
+    }
   } catch (error) {
     next(error);
   }
