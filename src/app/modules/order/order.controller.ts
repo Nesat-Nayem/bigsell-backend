@@ -4,6 +4,7 @@ import { Product } from '../product/product.model';
 import { Cart } from '../cart/cart.model';
 import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
+import { Coupon } from '../coupon/coupon.model';
 
 // Create new order
 export const createOrder = async (
@@ -47,6 +48,7 @@ export const createOrder = async (
     // Validate and process order items
     const orderItems = [];
     let subtotal = 0;
+    const itemsVendorSubs: Array<{ vendor?: string | null; subtotal: number }> = [];
 
     for (const item of items) {
       if (!mongoose.Types.ObjectId.isValid(item.productId)) {
@@ -95,6 +97,12 @@ export const createOrder = async (
         subtotal: itemSubtotal,
       });
 
+      // Track vendor eligibility for coupon calculations
+      itemsVendorSubs.push({
+        vendor: product.vendor ? String(product.vendor) : null,
+        subtotal: itemSubtotal,
+      });
+
       // Update product stock
       product.stock -= item.quantity;
       await product.save();
@@ -105,9 +113,40 @@ export const createOrder = async (
     const tax = subtotal * 0.05; // 5% tax
     let discount = 0;
 
-    // Apply coupon if provided (simplified logic)
-    if (couponCode === 'SAVE10') {
-      discount = subtotal * 0.1; // 10% discount
+    // Apply coupon if provided (admin global or vendor-specific)
+    if (couponCode) {
+      const code = String(couponCode).trim().toUpperCase();
+      const c: any = await Coupon.findOne({ code, isDeleted: false });
+      const now = new Date();
+      if (
+        c &&
+        c.status === 'active' &&
+        new Date(c.startDate) <= now &&
+        new Date(c.endDate) >= now
+      ) {
+        let eligible = 0;
+        if (c.vendor) {
+          eligible = itemsVendorSubs
+            .filter((x) => String(x.vendor) === String(c.vendor))
+            .reduce((a, b) => a + b.subtotal, 0);
+        } else {
+          eligible = subtotal;
+        }
+
+        let amount = 0;
+        if (c.discountType === 'percentage') {
+          amount = (eligible * Number(c.discountValue || 0)) / 100;
+          if (c.maxDiscountAmount != null) {
+            amount = Math.min(amount, Number(c.maxDiscountAmount));
+          }
+        } else {
+          amount = Math.min(Number(c.discountValue || 0), eligible);
+        }
+        if (c.minOrderAmount != null && eligible < Number(c.minOrderAmount)) {
+          amount = 0;
+        }
+        discount = Math.max(0, amount);
+      }
     }
 
     const totalAmount = subtotal + shippingCost + tax - discount;
