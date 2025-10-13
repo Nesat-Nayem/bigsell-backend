@@ -33,6 +33,7 @@ const subscription_routes_1 = require("../modules/subscription/subscription.rout
 const subscription_include_routes_1 = require("../modules/subscription-include/subscription-include.routes");
 const vendor_routes_1 = require("../modules/vendor/vendor.routes");
 const address_routes_1 = require("../modules/address/address.routes");
+const coupon_routes_1 = require("../modules/coupon/coupon.routes");
 const router = (0, express_1.Router)();
 const moduleRoutes = [
     {
@@ -166,6 +167,10 @@ const moduleRoutes = [
     {
         path: "/addresses",
         route: address_routes_1.addressRouter,
+    },
+    {
+        path: "/coupons",
+        route: coupon_routes_1.couponRouter,
     },
 ];
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

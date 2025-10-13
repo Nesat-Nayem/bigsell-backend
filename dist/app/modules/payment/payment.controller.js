@@ -12,12 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.createPayment = void 0;
+exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.handleCashfreeReturn = exports.initiateCashfreePayment = exports.createPayment = void 0;
 const payment_model_1 = require("./payment.model");
 const order_model_1 = require("../order/order.model");
 const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
 const crypto_1 = __importDefault(require("crypto"));
+const cashfree_1 = require("./gateways/cashfree");
 // Razorpay configuration (you'll need to install razorpay package)
 // npm install razorpay @types/razorpay
 const Razorpay = require('razorpay');
@@ -133,6 +134,139 @@ const createPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.createPayment = createPayment;
+// Cashfree: initiate payment for an existing order
+const initiateCashfreePayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e, _f;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a._id;
+        const { orderId } = req.body;
+        if (!userId) {
+            next(new appError_1.appError('User not authenticated', 401));
+            return;
+        }
+        if (!mongoose_1.default.Types.ObjectId.isValid(orderId)) {
+            next(new appError_1.appError('Invalid order ID', 400));
+            return;
+        }
+        const order = yield order_model_1.Order.findOne({ _id: orderId, user: userId, isDeleted: false });
+        if (!order) {
+            next(new appError_1.appError('Order not found', 404));
+            return;
+        }
+        // Prevent duplicate active payments
+        const existingPayment = yield payment_model_1.Payment.findOne({
+            orderId,
+            gateway: 'cashfree',
+            status: { $in: ['pending', 'processing', 'completed'] },
+            isDeleted: false,
+        });
+        if (existingPayment) {
+            next(new appError_1.appError('Payment already exists for this order', 400));
+            return;
+        }
+        const returnUrl = (0, cashfree_1.getReturnUrl)(req, orderId);
+        const cfOrder = yield (0, cashfree_1.createCashfreeOrder)({
+            orderAmount: order.totalAmount,
+            currency: 'INR',
+            customer: {
+                id: String(userId),
+                name: ((_b = order === null || order === void 0 ? void 0 : order.user) === null || _b === void 0 ? void 0 : _b.name) || '',
+                email: ((_c = order === null || order === void 0 ? void 0 : order.shippingAddress) === null || _c === void 0 ? void 0 : _c.email) || '',
+                phone: ((_d = order === null || order === void 0 ? void 0 : order.shippingAddress) === null || _d === void 0 ? void 0 : _d.phone) || '',
+            },
+            returnUrl,
+            notes: { orderNumber: order.orderNumber, ourOrderId: orderId },
+        });
+        // Create payment record
+        const payment = new payment_model_1.Payment({
+            orderId,
+            userId,
+            amount: Math.round(order.totalAmount * 100),
+            currency: 'INR',
+            method: 'card',
+            gateway: 'cashfree',
+            status: 'pending',
+            gatewayOrderId: cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.order_id,
+            description: `Cashfree payment for order ${order.orderNumber}`,
+            notes: { cf: { order_id: cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.order_id } },
+            customerEmail: ((_e = order === null || order === void 0 ? void 0 : order.shippingAddress) === null || _e === void 0 ? void 0 : _e.email) || '',
+            customerPhone: ((_f = order === null || order === void 0 ? void 0 : order.shippingAddress) === null || _f === void 0 ? void 0 : _f.phone) || '',
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+        });
+        yield payment.save();
+        res.status(201).json({
+            success: true,
+            statusCode: 201,
+            message: 'Cashfree payment initiated successfully',
+            data: {
+                paymentId: payment.paymentId,
+                orderId: payment.orderId,
+                gateway: 'cashfree',
+                status: payment.status,
+                cashfreeOrderId: cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.order_id,
+                paymentSessionId: cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.payment_session_id,
+            },
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.initiateCashfreePayment = initiateCashfreePayment;
+// Cashfree: return URL handler (redirect flow)
+const handleCashfreeReturn = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const ourOrderId = String(req.query.our_order_id || '');
+        if (!ourOrderId || !mongoose_1.default.Types.ObjectId.isValid(ourOrderId)) {
+            return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + '/account?tab=orders&payment=invalid');
+        }
+        // Find the latest cashfree payment for this order
+        const payment = yield payment_model_1.Payment.findOne({ orderId: ourOrderId, gateway: 'cashfree', isDeleted: false }).sort('-createdAt');
+        if (!payment || !payment.gatewayOrderId) {
+            return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + `/orders/${ourOrderId}?payment=missing`);
+        }
+        // Fetch order status from Cashfree
+        let cfOrder;
+        try {
+            cfOrder = yield (0, cashfree_1.fetchCashfreeOrder)((payment.gatewayOrderId));
+        }
+        catch (e) {
+            yield payment.markFailed('Cashfree fetch order failed', 'CF_FETCH_FAILED');
+            return res.redirect((process.env.WEB_BASE_URL || 'http://localhost:3000') + `/orders/${ourOrderId}?payment=failed`);
+        }
+        const status = String((cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.order_status) || (cfOrder === null || cfOrder === void 0 ? void 0 : cfOrder.status) || '').toUpperCase();
+        const isPaid = status === 'PAID' || status === 'COMPLETED' || status === 'SUCCESS';
+        // Update payment record
+        if (isPaid) {
+            yield payment.markCompleted(cfOrder);
+        }
+        else {
+            yield payment.markFailed(`Status: ${status || 'UNKNOWN'}`, 'CF_STATUS');
+        }
+        // Update order payment status
+        const order = yield order_model_1.Order.findById(ourOrderId);
+        if (order) {
+            order.paymentStatus = isPaid ? 'paid' : 'failed';
+            order.paymentInfo.status = isPaid ? 'completed' : 'failed';
+            order.paymentInfo.transactionId = payment.gatewayPaymentId || payment.gatewayOrderId || payment.paymentId;
+            order.paymentInfo.paymentDate = isPaid ? new Date() : order.paymentInfo.paymentDate;
+            yield order.save();
+        }
+        const webBase = process.env.WEB_BASE_URL || 'http://localhost:3000';
+        if (isPaid) {
+            return res.redirect(`${webBase}/orders/${ourOrderId}?payment=success`);
+        }
+        else {
+            return res.redirect(`${webBase}/orders/${ourOrderId}?payment=failed`);
+        }
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.handleCashfreeReturn = handleCashfreeReturn;
 // Verify Razorpay payment
 const verifyPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {

@@ -88,6 +88,10 @@ router.post('/', (0, authMiddleware_1.auth)(), payment_controller_1.createPaymen
  *         description: Payment not found
  */
 router.post('/verify', (0, authMiddleware_1.auth)(), payment_controller_1.verifyPayment);
+// Cashfree: initiate payment for an existing order
+router.post('/cashfree/initiate', (0, authMiddleware_1.auth)(), payment_controller_1.initiateCashfreePayment);
+// Cashfree: return URL handler (no auth; Cashfree redirects users here)
+router.get('/cashfree/return', payment_controller_1.handleCashfreeReturn);
 /**
  * @swagger
  * /v1/api/payments/my-payments:

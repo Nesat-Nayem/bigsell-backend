@@ -144,6 +144,84 @@ export const createPayment = async (
   }
 };
 
+// Cashfree webhook handler (server-to-server notifications)
+export const handleCashfreeWebhook = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const providedSig = req.get('x-webhook-signature') || req.get('X-Webhook-Signature');
+    const secret = process.env.CASHFREE_WEBHOOK_SECRET || '';
+    if (!providedSig || !secret) {
+      return res.status(400).json({ success: false, message: 'Missing signature or secret' });
+    }
+
+    // Cashfree expects HMAC-SHA256 over RAW request body, base64 encoded
+    const rawBody = (req as any).rawBody
+      ? String((req as any).rawBody)
+      : JSON.stringify(req.body || {});
+
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
+    const safeEqual = (a: string, b: string) => {
+      const ab = Buffer.from(String(a));
+      const bb = Buffer.from(String(b));
+      if (ab.length !== bb.length) return false;
+      return crypto.timingSafeEqual(ab, bb);
+    };
+    if (!safeEqual(providedSig, expected)) {
+      return res.status(400).json({ success: false, message: 'Invalid signature' });
+    }
+
+    const payload: any = req.body || {};
+    const type = String(payload?.type || payload?.event || payload?.event_type || '').toLowerCase();
+    const cfOrderId =
+      payload?.data?.order?.order_id || payload?.order?.order_id || payload?.order_id || payload?.data?.order_id;
+    const cfPaymentId =
+      payload?.data?.payment?.payment_id || payload?.payment?.payment_id || payload?.data?.payment?.id;
+    const statusRaw =
+      payload?.data?.payment?.payment_status || payload?.payment?.payment_status || payload?.status || '';
+    const status = String(statusRaw).toUpperCase();
+    const isPaid = type.includes('order.paid') || ['PAID', 'SUCCESS', 'COMPLETED'].includes(status);
+
+    if (!cfOrderId) {
+      return res.status(200).json({ success: true, message: 'No order_id in webhook; ignored' });
+    }
+
+    const payment = await Payment.findOne({
+      gateway: 'cashfree',
+      gatewayOrderId: cfOrderId,
+      isDeleted: false,
+    }).sort('-createdAt');
+
+    if (!payment) {
+      // Acknowledge to avoid retries; optionally log
+      return res.status(200).json({ success: true, message: 'Payment not found for cf order id' });
+    }
+
+    if (isPaid) {
+      await (payment as any).markCompleted(payload);
+    } else if (status) {
+      await (payment as any).markFailed(`Status: ${status}`, 'CF_WEBHOOK', type || status);
+    }
+
+    // Update linked order status
+    const order = await Order.findById((payment as any).orderId);
+    if (order) {
+      const paid = !!isPaid;
+      order.paymentStatus = paid ? 'paid' : 'failed';
+      (order as any).paymentInfo.status = paid ? 'completed' : 'failed';
+      (order as any).paymentInfo.transactionId = cfPaymentId || (payment as any).gatewayPaymentId || (payment as any).gatewayOrderId;
+      if (paid) (order as any).paymentInfo.paymentDate = new Date();
+      await order.save();
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Cashfree: initiate payment for an existing order
 export const initiateCashfreePayment = async (
   req: Request,

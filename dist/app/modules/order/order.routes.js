@@ -221,6 +221,11 @@ router.get("/summary/vendor", (0, authMiddleware_1.auth)("vendor"), order_contro
 // Vendor orders: list orders that include vendor's products
 router.get("/vendor", (0, authMiddleware_1.auth)("vendor"), order_controller_1.getVendorOrders);
 router.get("/:id", (0, authMiddleware_1.auth)(), order_controller_1.getOrderById);
+// Delhivery operations
+router.post("/:id/delhivery/shipment", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.createDelhiveryShipmentForOrder);
+router.post("/:id/delhivery/pickup", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.scheduleDelhiveryPickupForOrder);
+router.get("/:id/delhivery/label", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.getDelhiveryLabelForOrder);
+router.get("/:id/delhivery/track", (0, authMiddleware_1.auth)(), order_controller_1.trackDelhiveryForOrder);
 /**
  * @swagger
  * /v1/api/orders/{id}/status:

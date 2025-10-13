@@ -131,7 +131,7 @@ const PaymentGatewayResponseSchema = new mongoose_1.Schema({
     error_source: String,
     error_step: String,
     error_reason: String,
-    created_at: Number,
+    created_at: mongoose_1.Schema.Types.Mixed,
 }, { _id: false });
 // Main Payment Schema (Enhanced)
 const PaymentSchema = new mongoose_1.Schema({
@@ -141,6 +141,13 @@ const PaymentSchema = new mongoose_1.Schema({
         required: true,
         unique: true,
         trim: true,
+        default: function () {
+            const timestamp = Date.now().toString();
+            const random = Math.floor(Math.random() * 1000)
+                .toString()
+                .padStart(3, "0");
+            return `PAY-${timestamp}-${random}`;
+        },
     },
     orderId: {
         type: mongoose_1.Schema.Types.ObjectId,
@@ -185,7 +192,7 @@ const PaymentSchema = new mongoose_1.Schema({
     },
     gateway: {
         type: String,
-        enum: ["razorpay", "ccavenue", "paytm", "cash_on_delivery"],
+        enum: ["razorpay", "ccavenue", "paytm", "cashfree", "cash_on_delivery"],
         required: true,
         default: "razorpay",
     },
