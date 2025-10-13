@@ -11,6 +11,10 @@ import {
   getOrderSummary,
   getVendorOrders,
   getVendorOrderSummary,
+  createDelhiveryShipmentForOrder,
+  scheduleDelhiveryPickupForOrder,
+  getDelhiveryLabelForOrder,
+  trackDelhiveryForOrder,
 } from "./order.controller";
 import { auth } from "../../middlewares/authMiddleware";
 
@@ -233,6 +237,12 @@ router.get("/summary/vendor", auth("vendor"), getVendorOrderSummary);
 router.get("/vendor", auth("vendor"), getVendorOrders);
 
 router.get("/:id", auth(), getOrderById);
+
+// Delhivery operations
+router.post("/:id/delhivery/shipment", auth("admin", "vendor"), createDelhiveryShipmentForOrder);
+router.post("/:id/delhivery/pickup", auth("admin", "vendor"), scheduleDelhiveryPickupForOrder);
+router.get("/:id/delhivery/label", auth("admin", "vendor"), getDelhiveryLabelForOrder);
+router.get("/:id/delhivery/track", auth(), trackDelhiveryForOrder);
 
 /**
  * @swagger

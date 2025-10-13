@@ -5,6 +5,7 @@ import { Cart } from '../cart/cart.model';
 import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
 import { Coupon } from '../coupon/coupon.model';
+import { delhiveryCreateShipment, delhiverySchedulePickup, delhiveryTrack, delhiveryLabel } from '../../integrations/delhivery';
 
 // Create new order
 export const createOrder = async (
@@ -201,6 +202,163 @@ export const createOrder = async (
       data: populatedOrder,
     });
     return;
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create Delhivery shipment for an order (admin/vendor)
+export const createDelhiveryShipmentForOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new appError('Invalid order ID', 400));
+    }
+
+    // ensure token configured
+    if (!process.env.DELHIVERY_API_TOKEN) {
+      return next(new appError('Delhivery token not configured', 500));
+    }
+
+    const order = await Order.findOne({ _id: id, isDeleted: false }).populate('items.product', 'weight shippingInfo name').lean();
+    if (!order) return next(new appError('Order not found', 404));
+
+    // Build consignee from shippingAddress
+    const ship = (order as any).shippingAddress || {};
+    if (!ship?.fullName || !ship?.addressLine1 || !ship?.city || !ship?.state || !ship?.postalCode) {
+      return next(new appError('Order missing shipping address details required for shipment', 400));
+    }
+
+    // Compute total weight (kg)
+    let totalWeight = 0;
+    const items = (order as any).items || [];
+    for (const it of items) {
+      const p: any = it.product || {};
+      const w = p?.weight ?? p?.shippingInfo?.weight ?? 0.5; // default 0.5kg
+      totalWeight += Number(w) * Number(it.quantity || 1);
+    }
+    if (totalWeight <= 0) totalWeight = 0.5;
+
+    const paymentMode = (order as any).paymentStatus === 'paid' ? 'Prepaid' : 'COD';
+    const payload = {
+      orderId: String(order._id),
+      orderNumber: String((order as any).orderNumber || order._id),
+      consignee: {
+        name: ship.fullName,
+        phone: ship.phone,
+        email: ship.email,
+        address1: ship.addressLine1,
+        address2: ship.addressLine2,
+        city: ship.city,
+        state: ship.state,
+        pincode: ship.postalCode,
+        country: ship.country || 'India',
+      },
+      paymentMode: paymentMode as 'Prepaid' | 'COD',
+      invoiceValue: Number((order as any).totalAmount || 0),
+      codAmount: paymentMode === 'COD' ? Number((order as any).totalAmount || 0) : 0,
+      weightKg: Number(totalWeight.toFixed(2)),
+      quantity: Math.max(1, Number(items.length) || 1),
+      pickup: {
+        location: process.env.DELHIVERY_PICKUP_LOCATION,
+      },
+      client: process.env.DELHIVERY_CLIENT,
+    };
+
+    const dlvRes = await delhiveryCreateShipment(payload);
+    // Try to extract waybill from various possible response shapes
+    const waybill = (dlvRes?.packages && dlvRes.packages[0]?.waybill) || dlvRes?.waybill || dlvRes?.wayBill || dlvRes?.awb || '';
+    if (!waybill) {
+      return res.status(200).json({ success: true, statusCode: 200, message: 'Delhivery shipment created (no waybill found in response)', data: { order, dlvRes } });
+    }
+
+    // Update order with tracking number and mark shipped
+    const updated = await Order.findById(id);
+    if (updated) {
+      updated.trackingNumber = waybill;
+      if (updated.status !== 'shipped') {
+        (updated as any).statusHistory.push({ status: 'shipped', timestamp: new Date(), note: 'Marked shipped after Delhivery AWB generation' });
+        updated.status = 'shipped';
+        updated.shippedAt = new Date();
+      }
+      await updated.save();
+    }
+
+    const populatedOrder = await Order.findById(id)
+      .populate('user', 'name email phone')
+      .populate('items.product', 'name price images thumbnail');
+
+    return res.status(200).json({ success: true, statusCode: 200, message: 'Delhivery shipment created', data: { order: populatedOrder, waybill, dlvRes } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Schedule Delhivery pickup (admin/vendor)
+export const scheduleDelhiveryPickupForOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return next(new appError('Invalid order ID', 400));
+    if (!process.env.DELHIVERY_API_TOKEN) return next(new appError('Delhivery token not configured', 500));
+
+    const order = await Order.findOne({ _id: id, isDeleted: false });
+    if (!order) return next(new appError('Order not found', 404));
+
+    const { expectedPackageCount, pickup } = req.body || {};
+    const dlvRes = await delhiverySchedulePickup({ expectedPackageCount, pickup });
+    return res.status(200).json({ success: true, statusCode: 200, message: 'Pickup scheduled', data: { dlvRes } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get Delhivery shipping label (PDF base64)
+export const getDelhiveryLabelForOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return next(new appError('Invalid order ID', 400));
+    if (!process.env.DELHIVERY_API_TOKEN) return next(new appError('Delhivery token not configured', 500));
+
+    const order = await Order.findOne({ _id: id, isDeleted: false });
+    if (!order) return next(new appError('Order not found', 404));
+    if (!order.trackingNumber) return next(new appError('No tracking number found for this order', 400));
+
+    const pdf = await delhiveryLabel([order.trackingNumber]);
+    return res.status(200).json({ success: true, statusCode: 200, message: 'Label fetched', data: pdf });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Track Delhivery shipment for an order
+export const trackDelhiveryForOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return next(new appError('Invalid order ID', 400));
+    if (!process.env.DELHIVERY_API_TOKEN) return next(new appError('Delhivery token not configured', 500));
+
+    const order = await Order.findOne({ _id: id, isDeleted: false });
+    if (!order) return next(new appError('Order not found', 404));
+    if (!order.trackingNumber) return next(new appError('No tracking number found for this order', 400));
+
+    const tracking = await delhiveryTrack(order.trackingNumber);
+    return res.status(200).json({ success: true, statusCode: 200, message: 'Tracking fetched', data: tracking });
   } catch (error) {
     next(error);
   }
