@@ -351,9 +351,9 @@ const options: swaggerJSDoc.Options = {
   ],
 };
 
-const specs = swaggerJSDoc(options);
-
 export const setupSwagger = (app: Application): void => {
+  // Generate specs only when explicitly setting up Swagger (avoids parsing in production on import)
+  const specs = swaggerJSDoc(options);
   // ElysiaJS-inspired modern Swagger UI with enhanced styling
   const customCss = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -825,4 +825,4 @@ export const setupSwagger = (app: Application): void => {
   );
 };
 
-export default specs;
+export {};
