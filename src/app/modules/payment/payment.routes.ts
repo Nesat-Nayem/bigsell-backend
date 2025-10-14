@@ -20,7 +20,7 @@ const router = express.Router();
  * @swagger
  * /v1/api/payments:
  *   post:
- *     summary: [Deprecated] Create a new payment order (Razorpay legacy)
+ *     summary: "[Deprecated] Create a new payment order (Razorpay legacy)"
  *     deprecated: true
  *     tags: [Payments]
  *     security:
@@ -47,7 +47,7 @@ router.post('/', auth(), createPayment);
  * @swagger
  * /v1/api/payments/verify:
  *   post:
- *     summary: [Deprecated] Verify Razorpay payment (legacy)
+ *     summary: "[Deprecated] Verify Razorpay payment (legacy)"
  *     deprecated: true
  *     tags: [Payments]
  *     security:
@@ -388,7 +388,7 @@ router.post('/:id/refund', auth('admin'), refundPayment);
  * @swagger
  * /v1/api/payments/webhook:
  *   post:
- *     summary: [Deprecated] Razorpay webhook handler (legacy)
+ *     summary: "[Deprecated] Razorpay webhook handler (legacy)"
  *     deprecated: true
  *     tags: [Payments]
  *     description: Legacy webhook endpoint for Razorpay payment notifications
