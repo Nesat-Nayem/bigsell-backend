@@ -12,7 +12,8 @@ const router = express_1.default.Router();
  * @swagger
  * /v1/api/payments:
  *   post:
- *     summary: Create a new payment order
+ *     summary: [Deprecated] Create a new payment order (Razorpay legacy)
+ *     deprecated: true
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -25,22 +26,6 @@ const router = express_1.default.Router();
  *     responses:
  *       201:
  *         description: Payment initiated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 statusCode:
- *                   type: integer
- *                   example: 201
- *                 message:
- *                   type: string
- *                   example: "Payment initiated successfully"
- *                 data:
- *                   $ref: '#/components/schemas/PaymentInitiateResponse'
  *       400:
  *         description: Bad request (invalid order, payment already exists)
  *       401:
@@ -53,7 +38,8 @@ router.post('/', (0, authMiddleware_1.auth)(), payment_controller_1.createPaymen
  * @swagger
  * /v1/api/payments/verify:
  *   post:
- *     summary: Verify Razorpay payment
+ *     summary: [Deprecated] Verify Razorpay payment (legacy)
+ *     deprecated: true
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -66,6 +52,35 @@ router.post('/', (0, authMiddleware_1.auth)(), payment_controller_1.createPaymen
  *     responses:
  *       200:
  *         description: Payment verified successfully
+ *       400:
+ *         description: Payment verification failed
+ *       404:
+ *         description: Payment not found
+ */
+router.post('/verify', (0, authMiddleware_1.auth)(), payment_controller_1.verifyPayment);
+/**
+ * @swagger
+ * /v1/api/payments/cashfree/initiate:
+ *   post:
+ *     summary: Initiate Cashfree payment for an order
+ *     tags: [Cashfree]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [orderId]
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: Mongo DB Order ID
+ *                 example: "66f12a3b5e9f9d1c2a3b4c5d"
+ *     responses:
+ *       201:
+ *         description: Cashfree payment initiated successfully
  *         content:
  *           application/json:
  *             schema:
@@ -73,24 +88,59 @@ router.post('/', (0, authMiddleware_1.auth)(), payment_controller_1.createPaymen
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *                 statusCode:
  *                   type: integer
- *                   example: 200
  *                 message:
  *                   type: string
- *                   example: "Payment verified successfully"
  *                 data:
- *                   $ref: '#/components/schemas/PaymentVerifyResponse'
+ *                   type: object
+ *                   properties:
+ *                     paymentId:
+ *                       type: string
+ *                     orderId:
+ *                       type: string
+ *                     gateway:
+ *                       type: string
+ *                       example: "cashfree"
+ *                     status:
+ *                       type: string
+ *                       example: "pending"
+ *                     cashfreeOrderId:
+ *                       type: string
+ *                     paymentSessionId:
+ *                       type: string
  *       400:
- *         description: Payment verification failed
+ *         description: Bad request or duplicate payment
+ *       401:
+ *         description: Unauthorized
  *       404:
- *         description: Payment not found
+ *         description: Order not found
  */
-router.post('/verify', (0, authMiddleware_1.auth)(), payment_controller_1.verifyPayment);
-// Cashfree: initiate payment for an existing order
 router.post('/cashfree/initiate', (0, authMiddleware_1.auth)(), payment_controller_1.initiateCashfreePayment);
-// Cashfree: return URL handler (no auth; Cashfree redirects users here)
+/**
+ * @swagger
+ * /v1/api/payments/cashfree/return:
+ *   get:
+ *     summary: Cashfree return URL (redirect handler)
+ *     tags: [Cashfree]
+ *     description: Cashfree redirects here after payment. The backend verifies the order with Cashfree, updates DB, and redirects the user to the frontend order page.
+ *     parameters:
+ *       - in: query
+ *         name: our_order_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Our internal Order ID (Mongo)
+ *       - in: query
+ *         name: cf_order_id
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Cashfree order id (Cashfree may replace this in return URL)
+ *     responses:
+ *       302:
+ *         description: Redirects to frontend order page with payment status
+ */
 router.get('/cashfree/return', payment_controller_1.handleCashfreeReturn);
 /**
  * @swagger
@@ -322,16 +372,43 @@ router.post('/:id/refund', (0, authMiddleware_1.auth)('admin'), payment_controll
  * @swagger
  * /v1/api/payments/webhook:
  *   post:
- *     summary: Razorpay webhook handler
+ *     summary: [Deprecated] Razorpay webhook handler (legacy)
+ *     deprecated: true
  *     tags: [Payments]
- *     description: Webhook endpoint for Razorpay payment notifications
+ *     description: Legacy webhook endpoint for Razorpay payment notifications
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             description: Razorpay webhook payload
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ *       400:
+ *         description: Invalid webhook request
+ */
+router.post('/webhook', payment_controller_1.handleWebhook);
+/**
+ * @swagger
+ * /v1/api/payments/cashfree/webhook:
+ *   post:
+ *     summary: Cashfree webhook handler
+ *     tags: [Cashfree]
+ *     description: Cashfree sends asynchronous events (e.g., order.paid). We verify signature and update the payment/order.
+ *     parameters:
+ *       - in: header
+ *         name: x-webhook-signature
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: HMAC-SHA256 signature of the raw request body using CASHFREE_WEBHOOK_SECRET
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
  *     responses:
  *       200:
  *         description: Webhook processed successfully
@@ -342,11 +419,10 @@ router.post('/:id/refund', (0, authMiddleware_1.auth)('admin'), payment_controll
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *       400:
- *         description: Invalid webhook request
+ *         description: Invalid signature or payload
  */
-router.post('/webhook', payment_controller_1.handleWebhook);
+router.post('/cashfree/webhook', express_1.default.raw({ type: 'application/json' }), payment_controller_1.handleCashfreeWebhook);
 /**
  * @swagger
  * /v1/api/payments/summary:

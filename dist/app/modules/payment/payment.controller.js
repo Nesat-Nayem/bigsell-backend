@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.handleCashfreeReturn = exports.initiateCashfreePayment = exports.createPayment = void 0;
+exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.handleCashfreeReturn = exports.initiateCashfreePayment = exports.handleCashfreeWebhook = exports.createPayment = void 0;
 const payment_model_1 = require("./payment.model");
 const order_model_1 = require("../order/order.model");
 const mongoose_1 = __importDefault(require("mongoose"));
@@ -134,6 +134,73 @@ const createPayment = (req, res, next) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.createPayment = createPayment;
+// Cashfree webhook handler (server-to-server notifications)
+const handleCashfreeWebhook = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    try {
+        const providedSig = req.get('x-webhook-signature') || req.get('X-Webhook-Signature');
+        const secret = process.env.CASHFREE_WEBHOOK_SECRET || '';
+        if (!providedSig || !secret) {
+            return res.status(400).json({ success: false, message: 'Missing signature or secret' });
+        }
+        // Cashfree expects HMAC-SHA256 over RAW request body, base64 encoded
+        const rawBody = req.rawBody
+            ? String(req.rawBody)
+            : JSON.stringify(req.body || {});
+        const expected = crypto_1.default.createHmac('sha256', secret).update(rawBody).digest('base64');
+        const safeEqual = (a, b) => {
+            const ab = Buffer.from(String(a));
+            const bb = Buffer.from(String(b));
+            if (ab.length !== bb.length)
+                return false;
+            return crypto_1.default.timingSafeEqual(ab, bb);
+        };
+        if (!safeEqual(providedSig, expected)) {
+            return res.status(400).json({ success: false, message: 'Invalid signature' });
+        }
+        const payload = req.body || {};
+        const type = String((payload === null || payload === void 0 ? void 0 : payload.type) || (payload === null || payload === void 0 ? void 0 : payload.event) || (payload === null || payload === void 0 ? void 0 : payload.event_type) || '').toLowerCase();
+        const cfOrderId = ((_b = (_a = payload === null || payload === void 0 ? void 0 : payload.data) === null || _a === void 0 ? void 0 : _a.order) === null || _b === void 0 ? void 0 : _b.order_id) || ((_c = payload === null || payload === void 0 ? void 0 : payload.order) === null || _c === void 0 ? void 0 : _c.order_id) || (payload === null || payload === void 0 ? void 0 : payload.order_id) || ((_d = payload === null || payload === void 0 ? void 0 : payload.data) === null || _d === void 0 ? void 0 : _d.order_id);
+        const cfPaymentId = ((_f = (_e = payload === null || payload === void 0 ? void 0 : payload.data) === null || _e === void 0 ? void 0 : _e.payment) === null || _f === void 0 ? void 0 : _f.payment_id) || ((_g = payload === null || payload === void 0 ? void 0 : payload.payment) === null || _g === void 0 ? void 0 : _g.payment_id) || ((_j = (_h = payload === null || payload === void 0 ? void 0 : payload.data) === null || _h === void 0 ? void 0 : _h.payment) === null || _j === void 0 ? void 0 : _j.id);
+        const statusRaw = ((_l = (_k = payload === null || payload === void 0 ? void 0 : payload.data) === null || _k === void 0 ? void 0 : _k.payment) === null || _l === void 0 ? void 0 : _l.payment_status) || ((_m = payload === null || payload === void 0 ? void 0 : payload.payment) === null || _m === void 0 ? void 0 : _m.payment_status) || (payload === null || payload === void 0 ? void 0 : payload.status) || '';
+        const status = String(statusRaw).toUpperCase();
+        const isPaid = type.includes('order.paid') || ['PAID', 'SUCCESS', 'COMPLETED'].includes(status);
+        if (!cfOrderId) {
+            return res.status(200).json({ success: true, message: 'No order_id in webhook; ignored' });
+        }
+        const payment = yield payment_model_1.Payment.findOne({
+            gateway: 'cashfree',
+            gatewayOrderId: cfOrderId,
+            isDeleted: false,
+        }).sort('-createdAt');
+        if (!payment) {
+            // Acknowledge to avoid retries; optionally log
+            return res.status(200).json({ success: true, message: 'Payment not found for cf order id' });
+        }
+        if (isPaid) {
+            yield payment.markCompleted(payload);
+        }
+        else if (status) {
+            yield payment.markFailed(`Status: ${status}`, 'CF_WEBHOOK', type || status);
+        }
+        // Update linked order status
+        const order = yield order_model_1.Order.findById(payment.orderId);
+        if (order) {
+            const paid = !!isPaid;
+            order.paymentStatus = paid ? 'paid' : 'failed';
+            order.paymentInfo.status = paid ? 'completed' : 'failed';
+            order.paymentInfo.transactionId = cfPaymentId || payment.gatewayPaymentId || payment.gatewayOrderId;
+            if (paid)
+                order.paymentInfo.paymentDate = new Date();
+            yield order.save();
+        }
+        return res.status(200).json({ success: true });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.handleCashfreeWebhook = handleCashfreeWebhook;
 // Cashfree: initiate payment for an existing order
 const initiateCashfreePayment = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e, _f;

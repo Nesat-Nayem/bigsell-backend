@@ -63,8 +63,10 @@ app.options("*", (0, cors_1.default)(corsOptions));
 // Body parsers
 app.use(express_1.default.json({ limit: "50mb" }));
 app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));
-// swagger configuration
-(0, swagger_1.setupSwagger)(app);
+// swagger configuration - only in development to avoid file scanning issues in production
+if (process.env.NODE_ENV !== 'production') {
+    (0, swagger_1.setupSwagger)(app);
+}
 // application routes
 app.use("/v1/api", routes_1.default);
 const entryRoute = (req, res) => {

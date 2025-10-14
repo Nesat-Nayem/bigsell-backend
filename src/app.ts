@@ -63,8 +63,10 @@ app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// swagger configuration
-setupSwagger(app);
+// swagger configuration - only in development to avoid file scanning issues in production
+if (process.env.NODE_ENV !== 'production') {
+  setupSwagger(app);
+}
 
 // application routes
 app.use("/v1/api", router);
