@@ -89,6 +89,16 @@ router.post("/", auth("admin", "vendor"), createProduct);
  *           type: string
  *         description: Filter by category ID
  *       - in: query
+ *         name: subcategory
+ *         schema:
+ *           type: string
+ *         description: Filter by subcategory ID
+ *       - in: query
+ *         name: subSubcategory
+ *         schema:
+ *           type: string
+ *         description: Filter by sub-subcategory ID
+ *       - in: query
  *         name: brand
  *         schema:
  *           type: string

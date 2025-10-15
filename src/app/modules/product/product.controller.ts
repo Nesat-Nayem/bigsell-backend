@@ -232,7 +232,7 @@ export const getManageProducts = async (
   }
 };
 
-// Get product summary/statistics (vendor scoped)
+// Get vendor product summary/statistics (vendor scoped)
 export const getVendorProductSummary = async (
   req: Request,
   res: Response,
@@ -506,6 +506,7 @@ export const getAllProducts = async (
       order = "desc",
       category,
       subcategory,
+      subSubcategory,
       brand,
       minPrice,
       maxPrice,
@@ -527,9 +528,27 @@ export const getAllProducts = async (
     const filter: any = { isDeleted: false };
 
     if (status) filter.status = status;
-    if (category) filter.category = category;
-    if (subcategory)
-      filter.subcategory = new RegExp(subcategory as string, "i");
+    if (category) {
+      if (!mongoose.Types.ObjectId.isValid(String(category))) {
+        next(new appError("Invalid category ID", 400));
+        return;
+      }
+      filter.category = category;
+    }
+    if (subcategory) {
+      if (!mongoose.Types.ObjectId.isValid(String(subcategory))) {
+        next(new appError("Invalid subcategory ID", 400));
+        return;
+      }
+      filter.subcategory = subcategory;
+    }
+    if (subSubcategory) {
+      if (!mongoose.Types.ObjectId.isValid(String(subSubcategory))) {
+        next(new appError("Invalid sub-subcategory ID", 400));
+        return;
+      }
+      filter.subSubcategory = subSubcategory;
+    }
     if (brand) filter.brand = new RegExp(brand as string, "i");
     if (isFeatured !== undefined) filter.isFeatured = isFeatured === "true";
     if (isTrending !== undefined) filter.isTrending = isTrending === "true";
