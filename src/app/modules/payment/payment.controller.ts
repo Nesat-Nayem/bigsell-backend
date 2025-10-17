@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { Payment } from './payment.model';
 import { Order } from '../order/order.model';
+import { Cart } from '../cart/cart.model';
 import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
 import crypto from 'crypto';
@@ -214,6 +215,19 @@ export const handleCashfreeWebhook = async (
       (order as any).paymentInfo.transactionId = cfPaymentId || (payment as any).gatewayPaymentId || (payment as any).gatewayOrderId;
       if (paid) (order as any).paymentInfo.paymentDate = new Date();
       await order.save();
+
+      // Clear user's cart on successful payment (safety net)
+      if (paid && (order as any).user) {
+        try {
+          const userCart = await Cart.findOne({ user: (order as any).user, isDeleted: false });
+          if (userCart) {
+            await (userCart as any).clearCart();
+          }
+        } catch (error) {
+          // Cart clearing failure shouldn't fail the webhook
+          console.log('Failed to clear cart in webhook:', error);
+        }
+      }
     }
 
     return res.status(200).json({ success: true });
