@@ -308,12 +308,21 @@ export const scheduleDelhiveryPickupForOrder = async (
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return next(new appError('Invalid order ID', 400));
     if (!process.env.DELHIVERY_API_TOKEN) return next(new appError('Delhivery token not configured', 500));
+    if (!process.env.DELHIVERY_PICKUP_LOCATION) return next(new appError('Delhivery pickup location not configured', 500));
 
     const order = await Order.findOne({ _id: id, isDeleted: false });
     if (!order) return next(new appError('Order not found', 404));
 
     const { expectedPackageCount, pickup } = req.body || {};
-    const dlvRes = await delhiverySchedulePickup({ expectedPackageCount, pickup });
+    const derivedCount = Math.max(1, Number(expectedPackageCount || (order as any).items?.length || 1));
+    const dlvRes = await delhiverySchedulePickup({
+      expectedPackageCount: derivedCount,
+      pickup: {
+        location: (pickup && pickup.location) || process.env.DELHIVERY_PICKUP_LOCATION,
+        date: pickup?.date,
+        time: pickup?.time,
+      },
+    });
     return res.status(200).json({ success: true, statusCode: 200, message: 'Pickup scheduled', data: { dlvRes } });
   } catch (error) {
     next(error);

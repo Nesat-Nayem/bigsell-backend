@@ -1,5 +1,3 @@
-import type { Request } from 'express';
-
 const DEFAULT_BASE = 'https://track.delhivery.com';
 
 function getBaseUrl() {
@@ -11,7 +9,6 @@ function getHeaders() {
   if (!token) throw new Error('DELHIVERY_API_TOKEN not set');
   return {
     Authorization: `Token ${token}`,
-    'Content-Type': 'application/json',
   } as Record<string, string>;
 }
 
@@ -45,57 +42,71 @@ export type CreateShipmentParams = {
 export async function delhiveryCreateShipment(params: CreateShipmentParams) {
   const base = getBaseUrl();
   const url = `${base}/api/cmu/create.json`;
-  const body: any = {
-    format: 'json',
-    data: [
-      {
-        consignee: params.consignee.name,
-        consignee_address: `${params.consignee.address1}${params.consignee.address2 ? ', ' + params.consignee.address2 : ''}`,
-        consignee_city: params.consignee.city,
-        consignee_state: params.consignee.state,
-        consignee_pincode: params.consignee.pincode,
-        consignee_phone: params.consignee.phone || '',
-        consignee_email: params.consignee.email || '',
-        pickup_location: params.pickup?.location || process.env.DELHIVERY_PICKUP_LOCATION || '',
-        pickup_date: params.pickup?.date || new Date().toISOString().slice(0, 10),
-        pickup_time: params.pickup?.time || undefined,
-        client: params.client || process.env.DELHIVERY_CLIENT || '',
-        order: params.orderNumber,
-        payment_mode: params.paymentMode,
-        product_ttl_ms: 0,
-        weight: Number(params.weightKg || 0.5),
-        quantity: Number(params.quantity || 1),
-        invoice_value: Number(params.invoiceValue || 0),
-        cod_amount: params.paymentMode === 'COD' ? Number(params.codAmount || params.invoiceValue || 0) : 0,
-      },
-    ],
+  const shipment: any = {
+    name: params.consignee.name,
+    add: `${params.consignee.address1}${params.consignee.address2 ? ', ' + params.consignee.address2 : ''}`,
+    city: params.consignee.city,
+    state: params.consignee.state,
+    pin: params.consignee.pincode,
+    phone: params.consignee.phone || '',
+    email: params.consignee.email || '',
+    order: params.orderNumber,
+    payment_mode: params.paymentMode,
+    weight: Number(params.weightKg || 0.5),
+    quantity: Number(params.quantity || 1),
+    total_amount: Number(params.invoiceValue || 0),
+    cod_amount: params.paymentMode === 'COD' ? Number(params.codAmount || params.invoiceValue || 0) : 0,
+    pickup_location: params.pickup?.location || process.env.DELHIVERY_PICKUP_LOCATION || '',
+    pickup_date: params.pickup?.date || new Date().toISOString().slice(0, 10),
+    ...(params.pickup?.time ? { pickup_time: params.pickup.time } : {}),
+    client: params.client || process.env.DELHIVERY_CLIENT || '',
   };
 
-  const res = await fetch(url, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-  const json = await res.json().catch(() => ({}));
+  const form = new URLSearchParams();
+  form.set('format', 'json');
+  form.set('data', JSON.stringify([shipment]));
+
+  const res = await fetch(url, { method: 'POST', headers: getHeaders(), body: form as any });
+  const text = await res.text();
+  let json: any = {};
+  try { json = JSON.parse(text); } catch (e) { json = {}; }
   if (!res.ok) {
-    const msg = (json && (json.message || json.error)) || 'Delhivery create shipment failed';
+    const msg = (json && (json.rmk || json.remarks || json.remark || json.message || json.error)) || text || 'Delhivery create shipment failed';
     throw new Error(msg);
   }
-  return json;
+  return json && Object.keys(json).length ? json : text;
 }
 
 export async function delhiverySchedulePickup(args: { expectedPackageCount?: number; pickup?: { location?: string; date?: string; time?: string } }) {
   const base = getBaseUrl();
-  const url = `${base}/fm/request/new`;
-  const body: any = {
-    pickup_time: args.pickup?.time,
-    pickup_date: args.pickup?.date || new Date().toISOString().slice(0, 10),
-    pickup_location: args.pickup?.location || process.env.DELHIVERY_PICKUP_LOCATION || '',
-    expected_package_count: Number(args.expectedPackageCount || 1),
-  };
-  const res = await fetch(url, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-  const json = await res.json().catch(() => ({}));
+  const url = `${base}/fm/request/new/`;
+  const form = new URLSearchParams();
+  form.set('format', 'json');
+  form.set('pickup_date', args.pickup?.date || new Date().toISOString().slice(0, 10));
+  const slot = (() => {
+    const s = args.pickup?.time || '';
+    if (!s) return '1100-1500';
+    // Accept HH:MM-HH:MM and convert to HHMM-HHMM
+    if (/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) {
+      const [a, b] = s.split('-');
+      return a.replace(':', '') + '-' + b.replace(':', '');
+    }
+    return s;
+  })();
+  form.set('pickup_time', slot);
+  form.set('pickup_location', args.pickup?.location || process.env.DELHIVERY_PICKUP_LOCATION || '');
+  form.set('expected_package_count', String(Number(args.expectedPackageCount || 1)));
+  if (process.env.DELHIVERY_PICKUP_REMARKS) form.set('remarks', process.env.DELHIVERY_PICKUP_REMARKS);
+
+  const res = await fetch(url, { method: 'POST', headers: getHeaders(), body: form as any });
+  const text = await res.text();
+  let json: any = {};
+  try { json = JSON.parse(text); } catch {}
   if (!res.ok) {
-    const msg = (json && (json.message || json.error)) || 'Delhivery pickup request failed';
+    const msg = (json && (json.rmk || json.remarks || json.remark || json.message || json.error)) || text || 'Delhivery pickup request failed';
     throw new Error(msg);
   }
-  return json;
+  return json && Object.keys(json).length ? json : text;
 }
 
 export async function delhiveryTrack(waybill: string) {
