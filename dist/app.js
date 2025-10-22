@@ -20,6 +20,7 @@ const corsOptions = {
             "https://bigsellv2admin.vercel.app",
             "https://admin.bigsell.org",
             "https://bigsell.org",
+            "https://api.atpuae.com",
             "http://localhost:3000",
             "http://localhost:3001",
             "http://127.0.0.1:3000",

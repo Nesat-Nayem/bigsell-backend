@@ -271,17 +271,28 @@ const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, vo
 exports.createDelhiveryShipmentForOrder = createDelhiveryShipmentForOrder;
 // Schedule Delhivery pickup (admin/vendor)
 const scheduleDelhiveryPickupForOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { id } = req.params;
         if (!mongoose_1.default.Types.ObjectId.isValid(id))
             return next(new appError_1.appError('Invalid order ID', 400));
         if (!process.env.DELHIVERY_API_TOKEN)
             return next(new appError_1.appError('Delhivery token not configured', 500));
+        if (!process.env.DELHIVERY_PICKUP_LOCATION)
+            return next(new appError_1.appError('Delhivery pickup location not configured', 500));
         const order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false });
         if (!order)
             return next(new appError_1.appError('Order not found', 404));
         const { expectedPackageCount, pickup } = req.body || {};
-        const dlvRes = yield (0, delhivery_1.delhiverySchedulePickup)({ expectedPackageCount, pickup });
+        const derivedCount = Math.max(1, Number(expectedPackageCount || ((_a = order.items) === null || _a === void 0 ? void 0 : _a.length) || 1));
+        const dlvRes = yield (0, delhivery_1.delhiverySchedulePickup)({
+            expectedPackageCount: derivedCount,
+            pickup: {
+                location: (pickup && pickup.location) || process.env.DELHIVERY_PICKUP_LOCATION,
+                date: pickup === null || pickup === void 0 ? void 0 : pickup.date,
+                time: pickup === null || pickup === void 0 ? void 0 : pickup.time,
+            },
+        });
         return res.status(200).json({ success: true, statusCode: 200, message: 'Pickup scheduled', data: { dlvRes } });
     }
     catch (error) {

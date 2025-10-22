@@ -23,7 +23,6 @@ function getHeaders() {
         throw new Error('DELHIVERY_API_TOKEN not set');
     return {
         Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
     };
 }
 function delhiveryCreateShipment(params) {
@@ -31,58 +30,63 @@ function delhiveryCreateShipment(params) {
         var _a, _b, _c;
         const base = getBaseUrl();
         const url = `${base}/api/cmu/create.json`;
-        const body = {
-            format: 'json',
-            data: [
-                {
-                    consignee: params.consignee.name,
-                    consignee_address: `${params.consignee.address1}${params.consignee.address2 ? ', ' + params.consignee.address2 : ''}`,
-                    consignee_city: params.consignee.city,
-                    consignee_state: params.consignee.state,
-                    consignee_pincode: params.consignee.pincode,
-                    consignee_phone: params.consignee.phone || '',
-                    consignee_email: params.consignee.email || '',
-                    pickup_location: ((_a = params.pickup) === null || _a === void 0 ? void 0 : _a.location) || process.env.DELHIVERY_PICKUP_LOCATION || '',
-                    pickup_date: ((_b = params.pickup) === null || _b === void 0 ? void 0 : _b.date) || new Date().toISOString().slice(0, 10),
-                    pickup_time: ((_c = params.pickup) === null || _c === void 0 ? void 0 : _c.time) || undefined,
-                    client: params.client || process.env.DELHIVERY_CLIENT || '',
-                    order: params.orderNumber,
-                    payment_mode: params.paymentMode,
-                    product_ttl_ms: 0,
-                    weight: Number(params.weightKg || 0.5),
-                    quantity: Number(params.quantity || 1),
-                    invoice_value: Number(params.invoiceValue || 0),
-                    cod_amount: params.paymentMode === 'COD' ? Number(params.codAmount || params.invoiceValue || 0) : 0,
-                },
-            ],
-        };
-        const res = yield fetch(url, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-        const json = yield res.json().catch(() => ({}));
+        const shipment = Object.assign(Object.assign({ name: params.consignee.name, add: `${params.consignee.address1}${params.consignee.address2 ? ', ' + params.consignee.address2 : ''}`, city: params.consignee.city, state: params.consignee.state, pin: params.consignee.pincode, phone: params.consignee.phone || '', email: params.consignee.email || '', order: params.orderNumber, payment_mode: params.paymentMode, weight: Number(params.weightKg || 0.5), quantity: Number(params.quantity || 1), total_amount: Number(params.invoiceValue || 0), cod_amount: params.paymentMode === 'COD' ? Number(params.codAmount || params.invoiceValue || 0) : 0, pickup_location: ((_a = params.pickup) === null || _a === void 0 ? void 0 : _a.location) || process.env.DELHIVERY_PICKUP_LOCATION || '', pickup_date: ((_b = params.pickup) === null || _b === void 0 ? void 0 : _b.date) || new Date().toISOString().slice(0, 10) }, (((_c = params.pickup) === null || _c === void 0 ? void 0 : _c.time) ? { pickup_time: params.pickup.time } : {})), { client: params.client || process.env.DELHIVERY_CLIENT || '' });
+        const form = new URLSearchParams();
+        form.set('format', 'json');
+        form.set('data', JSON.stringify([shipment]));
+        const res = yield fetch(url, { method: 'POST', headers: getHeaders(), body: form });
+        const text = yield res.text();
+        let json = {};
+        try {
+            json = JSON.parse(text);
+        }
+        catch (e) {
+            json = {};
+        }
         if (!res.ok) {
-            const msg = (json && (json.message || json.error)) || 'Delhivery create shipment failed';
+            const msg = (json && (json.rmk || json.remarks || json.remark || json.message || json.error)) || text || 'Delhivery create shipment failed';
             throw new Error(msg);
         }
-        return json;
+        return json && Object.keys(json).length ? json : text;
     });
 }
 function delhiverySchedulePickup(args) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
+        var _a, _b;
         const base = getBaseUrl();
-        const url = `${base}/fm/request/new`;
-        const body = {
-            pickup_time: (_a = args.pickup) === null || _a === void 0 ? void 0 : _a.time,
-            pickup_date: ((_b = args.pickup) === null || _b === void 0 ? void 0 : _b.date) || new Date().toISOString().slice(0, 10),
-            pickup_location: ((_c = args.pickup) === null || _c === void 0 ? void 0 : _c.location) || process.env.DELHIVERY_PICKUP_LOCATION || '',
-            expected_package_count: Number(args.expectedPackageCount || 1),
-        };
-        const res = yield fetch(url, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-        const json = yield res.json().catch(() => ({}));
+        const url = `${base}/fm/request/new/`;
+        const form = new URLSearchParams();
+        form.set('format', 'json');
+        form.set('pickup_date', ((_a = args.pickup) === null || _a === void 0 ? void 0 : _a.date) || new Date().toISOString().slice(0, 10));
+        const slot = (() => {
+            var _a;
+            const s = ((_a = args.pickup) === null || _a === void 0 ? void 0 : _a.time) || '';
+            if (!s)
+                return '1100-1500';
+            // Accept HH:MM-HH:MM and convert to HHMM-HHMM
+            if (/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) {
+                const [a, b] = s.split('-');
+                return a.replace(':', '') + '-' + b.replace(':', '');
+            }
+            return s;
+        })();
+        form.set('pickup_time', slot);
+        form.set('pickup_location', ((_b = args.pickup) === null || _b === void 0 ? void 0 : _b.location) || process.env.DELHIVERY_PICKUP_LOCATION || '');
+        form.set('expected_package_count', String(Number(args.expectedPackageCount || 1)));
+        if (process.env.DELHIVERY_PICKUP_REMARKS)
+            form.set('remarks', process.env.DELHIVERY_PICKUP_REMARKS);
+        const res = yield fetch(url, { method: 'POST', headers: getHeaders(), body: form });
+        const text = yield res.text();
+        let json = {};
+        try {
+            json = JSON.parse(text);
+        }
+        catch (_c) { }
         if (!res.ok) {
-            const msg = (json && (json.message || json.error)) || 'Delhivery pickup request failed';
+            const msg = (json && (json.rmk || json.remarks || json.remark || json.message || json.error)) || text || 'Delhivery pickup request failed';
             throw new Error(msg);
         }
-        return json;
+        return json && Object.keys(json).length ? json : text;
     });
 }
 function delhiveryTrack(waybill) {

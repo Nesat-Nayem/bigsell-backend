@@ -76,10 +76,6 @@ const moduleRoutes = [
         path: "/general-settings",
         route: general_settings_routes_1.generalSettingsRouter,
     },
-    // {
-    //   path: "/save-cards",
-    //   route: saveCardRouter,
-    // },
     {
         path: "/faqs",
         route: faq_routes_1.faqRouter,

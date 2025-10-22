@@ -353,8 +353,9 @@ const options = {
         "./src/app/routes/index.ts",
     ],
 };
-const specs = (0, swagger_jsdoc_1.default)(options);
 const setupSwagger = (app) => {
+    // Generate specs only when explicitly setting up Swagger (avoids parsing in production on import)
+    const specs = (0, swagger_jsdoc_1.default)(options);
     // ElysiaJS-inspired modern Swagger UI with enhanced styling
     const customCss = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -814,4 +815,3 @@ const setupSwagger = (app) => {
     console.log("📚 Swagger documentation available at: https://bigsellv2backend.vercel.app/api-docs");
 };
 exports.setupSwagger = setupSwagger;
-exports.default = specs;

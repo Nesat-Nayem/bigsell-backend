@@ -193,7 +193,7 @@ const getManageProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, 
     }
 });
 exports.getManageProducts = getManageProducts;
-// Get product summary/statistics (vendor scoped)
+// Get vendor product summary/statistics (vendor scoped)
 const getVendorProductSummary = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const actingUser = req.user;
@@ -421,15 +421,32 @@ exports.getProductBySlug = getProductBySlug;
 // Get all products with filtering, sorting, and pagination
 const getAllProducts = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { page = 1, limit = 10, sort = "createdAt", order = "desc", category, subcategory, brand, minPrice, maxPrice, inStock, status = "active", isFeatured, isTrending, isNewArrival, isDiscount, isWeeklyBestSelling, isWeeklyDiscount, colors, sizes, rating, search, } = req.query;
+        const { page = 1, limit = 10, sort = "createdAt", order = "desc", category, subcategory, subSubcategory, brand, minPrice, maxPrice, inStock, status = "active", isFeatured, isTrending, isNewArrival, isDiscount, isWeeklyBestSelling, isWeeklyDiscount, colors, sizes, rating, search, } = req.query;
         // Build filter object
         const filter = { isDeleted: false };
         if (status)
             filter.status = status;
-        if (category)
+        if (category) {
+            if (!mongoose_1.default.Types.ObjectId.isValid(String(category))) {
+                next(new appError_1.appError("Invalid category ID", 400));
+                return;
+            }
             filter.category = category;
-        if (subcategory)
-            filter.subcategory = new RegExp(subcategory, "i");
+        }
+        if (subcategory) {
+            if (!mongoose_1.default.Types.ObjectId.isValid(String(subcategory))) {
+                next(new appError_1.appError("Invalid subcategory ID", 400));
+                return;
+            }
+            filter.subcategory = subcategory;
+        }
+        if (subSubcategory) {
+            if (!mongoose_1.default.Types.ObjectId.isValid(String(subSubcategory))) {
+                next(new appError_1.appError("Invalid sub-subcategory ID", 400));
+                return;
+            }
+            filter.subSubcategory = subSubcategory;
+        }
         if (brand)
             filter.brand = new RegExp(brand, "i");
         if (isFeatured !== undefined)

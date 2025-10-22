@@ -73,6 +73,16 @@ router.post("/", (0, authMiddleware_1.auth)("admin", "vendor"), product_controll
  *           type: string
  *         description: Filter by category ID
  *       - in: query
+ *         name: subcategory
+ *         schema:
+ *           type: string
+ *         description: Filter by subcategory ID
+ *       - in: query
+ *         name: subSubcategory
+ *         schema:
+ *           type: string
+ *         description: Filter by sub-subcategory ID
+ *       - in: query
  *         name: brand
  *         schema:
  *           type: string

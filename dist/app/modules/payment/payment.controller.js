@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPaymentSummary = exports.handleWebhook = exports.refundPayment = exports.getPaymentById = exports.getAllPayments = exports.getUserPayments = exports.verifyPayment = exports.handleCashfreeReturn = exports.initiateCashfreePayment = exports.handleCashfreeWebhook = exports.createPayment = void 0;
 const payment_model_1 = require("./payment.model");
 const order_model_1 = require("../order/order.model");
+const cart_model_1 = require("../cart/cart.model");
 const mongoose_1 = __importDefault(require("mongoose"));
 const appError_1 = require("../../errors/appError");
 const crypto_1 = __importDefault(require("crypto"));
@@ -193,6 +194,19 @@ const handleCashfreeWebhook = (req, res, next) => __awaiter(void 0, void 0, void
             if (paid)
                 order.paymentInfo.paymentDate = new Date();
             yield order.save();
+            // Clear user's cart on successful payment (safety net)
+            if (paid && order.user) {
+                try {
+                    const userCart = yield cart_model_1.Cart.findOne({ user: order.user, isDeleted: false });
+                    if (userCart) {
+                        yield userCart.clearCart();
+                    }
+                }
+                catch (error) {
+                    // Cart clearing failure shouldn't fail the webhook
+                    console.log('Failed to clear cart in webhook:', error);
+                }
+            }
         }
         return res.status(200).json({ success: true });
     }
