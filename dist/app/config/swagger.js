@@ -22,15 +22,15 @@ const options = {
         },
         servers: [
             {
-                url: "http://api.atpuae.com",
+                url: "https://api.atpuae.com",
                 description: "Development server",
             },
             {
-                url: "http://api.atpuae.com",
+                url: "https://api.atpuae.com",
                 description: "Production server main",
             },
             {
-                url: "http://api.atpuae.com",
+                url: "https://api.atpuae.com",
                 description: "Legacy production server",
             },
         ],
