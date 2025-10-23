@@ -220,6 +220,8 @@ router.get("/summary", (0, authMiddleware_1.auth)("admin"), order_controller_1.g
 router.get("/summary/vendor", (0, authMiddleware_1.auth)("vendor"), order_controller_1.getVendorOrderSummary);
 // Vendor orders: list orders that include vendor's products
 router.get("/vendor", (0, authMiddleware_1.auth)("vendor"), order_controller_1.getVendorOrders);
+// Quote should come before parameterized routes
+router.post("/quote/delhivery", (0, authMiddleware_1.auth)("user", "admin", "vendor"), order_controller_1.getDelhiveryQuote);
 router.get("/:id", (0, authMiddleware_1.auth)(), order_controller_1.getOrderById);
 // Delhivery operations
 router.post("/:id/delhivery/shipment", (0, authMiddleware_1.auth)("admin", "vendor"), order_controller_1.createDelhiveryShipmentForOrder);

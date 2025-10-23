@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOrderSummary = exports.updatePaymentStatus = exports.returnOrder = exports.cancelOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.getUserOrders = exports.getVendorOrderSummary = exports.getVendorOrders = exports.trackDelhiveryForOrder = exports.getDelhiveryLabelForOrder = exports.scheduleDelhiveryPickupForOrder = exports.createDelhiveryShipmentForOrder = exports.createOrder = void 0;
+exports.getOrderSummary = exports.updatePaymentStatus = exports.returnOrder = exports.cancelOrder = exports.updateOrderStatus = exports.getOrderById = exports.getAllOrders = exports.getUserOrders = exports.getVendorOrderSummary = exports.getVendorOrders = exports.trackDelhiveryForOrder = exports.getDelhiveryLabelForOrder = exports.scheduleDelhiveryPickupForOrder = exports.createDelhiveryShipmentForOrder = exports.getDelhiveryQuote = exports.createOrder = void 0;
 const order_model_1 = require("./order.model");
 const product_model_1 = require("../product/product.model");
 const cart_model_1 = require("../cart/cart.model");
@@ -22,6 +22,7 @@ const coupon_model_1 = require("../coupon/coupon.model");
 const delhivery_1 = require("../../integrations/delhivery");
 // Create new order
 const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
     try {
         const actingUser = req.user;
         const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode, user: requestedUserId, } = req.body;
@@ -46,6 +47,7 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
         // Validate and process order items
         const orderItems = [];
         let subtotal = 0;
+        let orderWeightKg = 0; // accumulate for shipping quote
         const itemsVendorSubs = [];
         for (const item of items) {
             if (!mongoose_1.default.Types.ObjectId.isValid(item.productId)) {
@@ -76,6 +78,18 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
             }
             const itemSubtotal = product.price * item.quantity;
             subtotal += itemSubtotal;
+            // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight which may be grams)
+            let wkg = Number((_a = product === null || product === void 0 ? void 0 : product.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
+            if (!wkg || isNaN(wkg)) {
+                const raw = Number(product === null || product === void 0 ? void 0 : product.weight);
+                if (raw && raw > 20)
+                    wkg = raw / 1000;
+                else
+                    wkg = raw || 0.5;
+            }
+            if (wkg <= 0)
+                wkg = 0.5;
+            orderWeightKg += wkg * Number(item.quantity || 1);
             orderItems.push({
                 product: product._id,
                 name: product.name,
@@ -96,7 +110,26 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
             yield product.save();
         }
         // Calculate totals
-        const shippingCost = shippingMethod === 'express' ? 100 : 50; // Example shipping costs
+        let shippingCost = shippingMethod === 'express' ? 100 : 50; // default fallback
+        try {
+            const originPincode = process.env.DELHIVERY_ORIGIN_PINCODE;
+            const destPincode = (shippingAddress === null || shippingAddress === void 0 ? void 0 : shippingAddress.postalCode) || (billingAddress === null || billingAddress === void 0 ? void 0 : billingAddress.postalCode);
+            if (process.env.DELHIVERY_API_TOKEN && originPincode && destPincode) {
+                const quote = yield (0, delhivery_1.delhiveryInvoiceCharges)({
+                    originPincode: String(originPincode),
+                    destPincode: String(destPincode),
+                    weightGrams: Math.max(500, Math.round(orderWeightKg * 1000)),
+                    paymentMode: (paymentMethod === 'cash_on_delivery') ? 'COD' : 'Pre-paid',
+                    client: process.env.DELHIVERY_CLIENT,
+                });
+                const fee = Number(((_c = (_b = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _b !== void 0 ? _b : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _c !== void 0 ? _c : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+                if (!isNaN(fee) && fee > 0)
+                    shippingCost = fee;
+            }
+        }
+        catch (e) {
+            // ignore quote failures, keep fallback shipping cost
+        }
         const tax = subtotal * 0.05; // 5% tax
         let discount = 0;
         // Apply coupon if provided (admin global or vendor-specific)
@@ -187,9 +220,67 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.createOrder = createOrder;
+// Get approximate Delhivery shipping charges (for checkout)
+const getDelhiveryQuote = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
+    try {
+        const { items, destPincode, paymentMode = 'Pre-paid', service } = req.body || {};
+        const originPincode = process.env.DELHIVERY_ORIGIN_PINCODE;
+        if (!process.env.DELHIVERY_API_TOKEN)
+            return next(new appError_1.appError('Delhivery token not configured', 500));
+        if (!originPincode)
+            return next(new appError_1.appError('DELHIVERY_ORIGIN_PINCODE not configured', 500));
+        if (!destPincode || String(destPincode).length < 4)
+            return next(new appError_1.appError('Destination pincode required', 400));
+        if (!Array.isArray(items) || items.length === 0)
+            return next(new appError_1.appError('Items required', 400));
+        // Fetch products to compute total weight in grams
+        const productIds = [];
+        const qtyMap = {};
+        for (const it of items) {
+            const id = String(it.productId || it.product || '');
+            if (mongoose_1.default.Types.ObjectId.isValid(id)) {
+                productIds.push(id);
+                qtyMap[id] = (qtyMap[id] || 0) + Math.max(1, Number(it.quantity || 1));
+            }
+        }
+        const prods = yield product_model_1.Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1 }).lean();
+        let totalGrams = 0;
+        for (const p of prods) {
+            const q = qtyMap[String(p._id)] || 1;
+            let wkg = Number((_a = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
+            if (!wkg || isNaN(wkg)) {
+                const raw = Number(p === null || p === void 0 ? void 0 : p.weight);
+                if (raw && raw > 20)
+                    wkg = raw / 1000;
+                else
+                    wkg = raw || 0.5;
+            }
+            if (wkg <= 0)
+                wkg = 0.5;
+            totalGrams += Math.round(wkg * 1000) * q;
+        }
+        if (totalGrams <= 0)
+            totalGrams = 500;
+        const quote = yield (0, delhivery_1.delhiveryInvoiceCharges)({
+            originPincode: String(originPincode),
+            destPincode: String(destPincode),
+            weightGrams: totalGrams,
+            paymentMode: paymentMode === 'COD' ? 'COD' : 'Pre-paid',
+            service,
+            client: process.env.DELHIVERY_CLIENT,
+        });
+        const shippingFee = Number(((_c = (_b = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _b !== void 0 ? _b : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _c !== void 0 ? _c : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+        return res.status(200).json({ success: true, statusCode: 200, message: 'Quote fetched', data: { shippingFee, quote } });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.getDelhiveryQuote = getDelhiveryQuote;
 // Create Delhivery shipment for an order (admin/vendor)
 const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g;
     try {
         const { id } = req.params;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
@@ -199,7 +290,10 @@ const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, vo
         if (!process.env.DELHIVERY_API_TOKEN) {
             return next(new appError_1.appError('Delhivery token not configured', 500));
         }
-        const order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false }).populate('items.product', 'weight shippingInfo name').lean();
+        const order = yield order_model_1.Order.findOne({ _id: id, isDeleted: false })
+            .populate('items.product', 'weight shippingInfo name')
+            .populate('user', 'name email phone')
+            .lean();
         if (!order)
             return next(new appError_1.appError('Order not found', 404));
         // Build consignee from shippingAddress
@@ -207,13 +301,27 @@ const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, vo
         if (!(ship === null || ship === void 0 ? void 0 : ship.fullName) || !(ship === null || ship === void 0 ? void 0 : ship.addressLine1) || !(ship === null || ship === void 0 ? void 0 : ship.city) || !(ship === null || ship === void 0 ? void 0 : ship.state) || !(ship === null || ship === void 0 ? void 0 : ship.postalCode)) {
             return next(new appError_1.appError('Order missing shipping address details required for shipment', 400));
         }
-        // Compute total weight (kg)
+        const phone = ship.phone || ((_a = order === null || order === void 0 ? void 0 : order.user) === null || _a === void 0 ? void 0 : _a.phone);
+        if (!phone) {
+            return next(new appError_1.appError('Shipping phone number is required for Delhivery', 400));
+        }
+        const pincode = String(ship.postalCode || '').trim();
+        if (!/^\d{6}$/.test(pincode)) {
+            return next(new appError_1.appError('Shipping postal code must be a valid 6-digit pincode for Delhivery', 400));
+        }
+        // Compute total weight (kg) with unit normalization
         let totalWeight = 0;
         const items = order.items || [];
         for (const it of items) {
             const p = it.product || {};
-            const w = (_c = (_a = p === null || p === void 0 ? void 0 : p.weight) !== null && _a !== void 0 ? _a : (_b = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _b === void 0 ? void 0 : _b.weight) !== null && _c !== void 0 ? _c : 0.5; // default 0.5kg
-            totalWeight += Number(w) * Number(it.quantity || 1);
+            const w = (_d = (_c = (_b = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _b === void 0 ? void 0 : _b.weight) !== null && _c !== void 0 ? _c : p === null || p === void 0 ? void 0 : p.weight) !== null && _d !== void 0 ? _d : 0.5;
+            let wkg = Number(w) || 0.5;
+            if (((_e = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _e === void 0 ? void 0 : _e.weight) == null && typeof (p === null || p === void 0 ? void 0 : p.weight) === 'number' && p.weight > 20) {
+                wkg = Number(p.weight) / 1000; // assume grams -> kg
+            }
+            if (wkg <= 0)
+                wkg = 0.5;
+            totalWeight += wkg * Number(it.quantity || 1);
         }
         if (totalWeight <= 0)
             totalWeight = 0.5;
@@ -223,13 +331,13 @@ const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, vo
             orderNumber: String(order.orderNumber || order._id),
             consignee: {
                 name: ship.fullName,
-                phone: ship.phone,
-                email: ship.email,
+                phone,
+                email: ship.email || ((_f = order === null || order === void 0 ? void 0 : order.user) === null || _f === void 0 ? void 0 : _f.email),
                 address1: ship.addressLine1,
                 address2: ship.addressLine2,
                 city: ship.city,
                 state: ship.state,
-                pincode: ship.postalCode,
+                pincode: pincode,
                 country: ship.country || 'India',
             },
             paymentMode: paymentMode,
@@ -244,7 +352,7 @@ const createDelhiveryShipmentForOrder = (req, res, next) => __awaiter(void 0, vo
         };
         const dlvRes = yield (0, delhivery_1.delhiveryCreateShipment)(payload);
         // Try to extract waybill from various possible response shapes
-        const waybill = ((dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.packages) && ((_d = dlvRes.packages[0]) === null || _d === void 0 ? void 0 : _d.waybill)) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.waybill) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.wayBill) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.awb) || '';
+        const waybill = ((dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.packages) && ((_g = dlvRes.packages[0]) === null || _g === void 0 ? void 0 : _g.waybill)) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.waybill) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.wayBill) || (dlvRes === null || dlvRes === void 0 ? void 0 : dlvRes.awb) || '';
         if (!waybill) {
             return res.status(200).json({ success: true, statusCode: 200, message: 'Delhivery shipment created (no waybill found in response)', data: { order, dlvRes } });
         }
