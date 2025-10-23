@@ -19,15 +19,15 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
-        url: "http://localhost:8080",
+        url: "http://api.atpuae.com",
         description: "Development server",
       },
       {
-        url: "http://localhost:8080",
+        url: "http://api.atpuae.com",
         description: "Production server main",
       },
       {
-        url: "http://localhost:8080",
+        url: "http://api.atpuae.com",
         description: "Legacy production server",
       },
     ],
