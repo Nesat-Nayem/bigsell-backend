@@ -187,16 +187,91 @@ export async function delhiveryTrack(waybill: string) {
 }
 
 export async function delhiveryLabel(waybills: string[]) {
-  // Some accounts use /api/p/print/leaf?wbns=... to fetch label PDF
   const base = getBaseUrl();
-  const url = `${base}/api/p/print/leaf?wbns=${encodeURIComponent(waybills.join(','))}`;
-  const res = await fetch(url, { headers: getHeaders() });
-  const buf = await res.arrayBuffer();
-  if (!res.ok) {
-    throw new Error('Delhivery label fetch failed');
+  
+  // Try multiple label endpoints
+  const endpoints = [
+    `${base}/api/p/packing_slip?wbns=${encodeURIComponent(waybills.join(','))}&pdf=true`,
+    `${base}/api/p/packing_slip_pdf?wbns=${encodeURIComponent(waybills.join(','))}`,
+    `${base}/api/p/packing_slip?wbns=${encodeURIComponent(waybills.join(','))}`,
+  ];
+  
+  console.log('📄 Delhivery Label Request for waybills:', waybills);
+  
+  for (let i = 0; i < endpoints.length; i++) {
+    const url = endpoints[i];
+    console.log(`\n🔄 Attempt ${i + 1}: ${url.substring(base.length)}`);
+    
+    try {
+      const res = await fetch(url, { headers: getHeaders() });
+      const contentType = res.headers.get('content-type') || '';
+      
+      console.log('Response:', res.status, contentType);
+      
+      // Skip if 404 or other error status
+      if (!res.ok) {
+        console.log(`❌ HTTP ${res.status} - skipping`);
+        continue;
+      }
+      
+      // If we got a PDF, return it
+      if (contentType.includes('pdf')) {
+        const buf = await res.arrayBuffer();
+        // Validate it's actually a PDF (PDF files start with %PDF)
+        const header = Buffer.from(buf.slice(0, 5)).toString('ascii');
+        if (header === '%PDF-') {
+          const base64 = Buffer.from(buf).toString('base64');
+          console.log('✅ Valid PDF label generated, size:', buf.byteLength, 'bytes');
+          return { pdfBase64: base64 };
+        } else {
+          console.log('❌ Invalid PDF content - skipping');
+          continue;
+        }
+      }
+      
+      // If JSON response, check for embedded data
+      if (contentType.includes('json')) {
+        const json = await res.json();
+        console.log('JSON response received');
+        
+        // Check if there's a PDF URL in the response
+        if (json.pdf_url || json.pdfUrl) {
+          const pdfUrl = json.pdf_url || json.pdfUrl;
+          console.log('Found PDF URL in response:', pdfUrl);
+          const pdfRes = await fetch(pdfUrl, { headers: getHeaders() });
+          if (pdfRes.ok) {
+            const buf = await pdfRes.arrayBuffer();
+            const header = Buffer.from(buf.slice(0, 5)).toString('ascii');
+            if (header === '%PDF-') {
+              const base64 = Buffer.from(buf).toString('base64');
+              return { pdfBase64: base64 };
+            }
+          }
+        }
+        
+        // Continue to next endpoint
+        continue;
+      }
+      
+      // Try as buffer if we got 200 OK with unknown content type
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        // Check if it's actually a PDF
+        const header = Buffer.from(buf.slice(0, 5)).toString('ascii');
+        if (header === '%PDF-') {
+          const base64 = Buffer.from(buf).toString('base64');
+          console.log('✅ Valid PDF found (unknown content-type), size:', buf.byteLength, 'bytes');
+          return { pdfBase64: base64 };
+        }
+      }
+    } catch (err: any) {
+      console.log(`❌ Attempt ${i + 1} failed:`, err.message);
+      continue;
+    }
   }
-  const base64 = Buffer.from(buf).toString('base64');
-  return { pdfBase64: base64 };
+  
+  // All attempts failed - throw error
+  throw new Error('Unable to generate PDF label via API. Please use "View in Delhivery Dashboard" to download the label directly from Delhivery.');
 }
 
 export async function delhiveryInvoiceCharges(params: {
