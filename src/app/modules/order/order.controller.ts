@@ -5,7 +5,7 @@ import { Cart } from '../cart/cart.model';
 import mongoose from 'mongoose';
 import { appError } from '../../errors/appError';
 import { Coupon } from '../coupon/coupon.model';
-import { delhiveryCreateShipment, delhiverySchedulePickup, delhiveryTrack, delhiveryLabel } from '../../integrations/delhivery';
+import { delhiveryCreateShipment, delhiverySchedulePickup, delhiveryTrack, delhiveryLabel, delhiveryInvoiceCharges } from '../../integrations/delhivery';
 
 // Create new order
 export const createOrder = async (
@@ -49,6 +49,7 @@ export const createOrder = async (
     // Validate and process order items
     const orderItems = [];
     let subtotal = 0;
+    let orderWeightKg = 0; // accumulate for shipping quote
     const itemsVendorSubs: Array<{ vendor?: string | null; subtotal: number }> = [];
 
     for (const item of items) {
@@ -87,6 +88,15 @@ export const createOrder = async (
       const itemSubtotal = product.price * item.quantity;
       subtotal += itemSubtotal;
 
+      // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight which may be grams)
+      let wkg = Number((product as any)?.shippingInfo?.weight);
+      if (!wkg || isNaN(wkg)) {
+        const raw = Number((product as any)?.weight);
+        if (raw && raw > 20) wkg = raw / 1000; else wkg = raw || 0.5;
+      }
+      if (wkg <= 0) wkg = 0.5;
+      orderWeightKg += wkg * Number(item.quantity || 1);
+
       orderItems.push({
         product: product._id,
         name: product.name,
@@ -110,7 +120,24 @@ export const createOrder = async (
     }
 
     // Calculate totals
-    const shippingCost = shippingMethod === 'express' ? 100 : 50; // Example shipping costs
+    let shippingCost = shippingMethod === 'express' ? 100 : 50; // default fallback
+    try {
+      const originPincode = process.env.DELHIVERY_ORIGIN_PINCODE;
+      const destPincode = (shippingAddress as any)?.postalCode || (billingAddress as any)?.postalCode;
+      if (process.env.DELHIVERY_API_TOKEN && originPincode && destPincode) {
+        const quote = await delhiveryInvoiceCharges({
+          originPincode: String(originPincode),
+          destPincode: String(destPincode),
+          weightGrams: Math.max(500, Math.round(orderWeightKg * 1000)),
+          paymentMode: (paymentMethod === 'cash_on_delivery') ? 'COD' : 'Pre-paid',
+          client: process.env.DELHIVERY_CLIENT,
+        } as any);
+        const fee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+        if (!isNaN(fee) && fee > 0) shippingCost = fee;
+      }
+    } catch (e) {
+      // ignore quote failures, keep fallback shipping cost
+    }
     const tax = subtotal * 0.05; // 5% tax
     let discount = 0;
 
@@ -207,6 +234,60 @@ export const createOrder = async (
   }
 };
 
+// Get approximate Delhivery shipping charges (for checkout)
+export const getDelhiveryQuote = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { items, destPincode, paymentMode = 'Pre-paid', service } = req.body || {};
+    const originPincode = process.env.DELHIVERY_ORIGIN_PINCODE;
+    if (!process.env.DELHIVERY_API_TOKEN) return next(new appError('Delhivery token not configured', 500));
+    if (!originPincode) return next(new appError('DELHIVERY_ORIGIN_PINCODE not configured', 500));
+    if (!destPincode || String(destPincode).length < 4) return next(new appError('Destination pincode required', 400));
+    if (!Array.isArray(items) || items.length === 0) return next(new appError('Items required', 400));
+
+    // Fetch products to compute total weight in grams
+    const productIds: string[] = [];
+    const qtyMap: Record<string, number> = {};
+    for (const it of items) {
+      const id = String(it.productId || it.product || '');
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        productIds.push(id);
+        qtyMap[id] = (qtyMap[id] || 0) + Math.max(1, Number(it.quantity || 1));
+      }
+    }
+    const prods = await Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1 }).lean();
+    let totalGrams = 0;
+    for (const p of prods as any[]) {
+      const q = qtyMap[String(p._id)] || 1;
+      let wkg = Number(p?.shippingInfo?.weight);
+      if (!wkg || isNaN(wkg)) {
+        const raw = Number(p?.weight);
+        if (raw && raw > 20) wkg = raw / 1000; else wkg = raw || 0.5;
+      }
+      if (wkg <= 0) wkg = 0.5;
+      totalGrams += Math.round(wkg * 1000) * q;
+    }
+    if (totalGrams <= 0) totalGrams = 500;
+
+    const quote = await delhiveryInvoiceCharges({
+      originPincode: String(originPincode),
+      destPincode: String(destPincode),
+      weightGrams: totalGrams,
+      paymentMode: paymentMode === 'COD' ? 'COD' : 'Pre-paid',
+      service,
+      client: process.env.DELHIVERY_CLIENT,
+    } as any);
+
+    const shippingFee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+    return res.status(200).json({ success: true, statusCode: 200, message: 'Quote fetched', data: { shippingFee, quote } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Create Delhivery shipment for an order (admin/vendor)
 export const createDelhiveryShipmentForOrder = async (
   req: Request,
@@ -224,7 +305,10 @@ export const createDelhiveryShipmentForOrder = async (
       return next(new appError('Delhivery token not configured', 500));
     }
 
-    const order = await Order.findOne({ _id: id, isDeleted: false }).populate('items.product', 'weight shippingInfo name').lean();
+    const order = await Order.findOne({ _id: id, isDeleted: false })
+      .populate('items.product', 'weight shippingInfo name')
+      .populate('user', 'name email phone')
+      .lean();
     if (!order) return next(new appError('Order not found', 404));
 
     // Build consignee from shippingAddress
@@ -232,14 +316,27 @@ export const createDelhiveryShipmentForOrder = async (
     if (!ship?.fullName || !ship?.addressLine1 || !ship?.city || !ship?.state || !ship?.postalCode) {
       return next(new appError('Order missing shipping address details required for shipment', 400));
     }
+    const phone = ship.phone || (order as any)?.user?.phone;
+    if (!phone) {
+      return next(new appError('Shipping phone number is required for Delhivery', 400));
+    }
+    const pincode = String(ship.postalCode || '').trim();
+    if (!/^\d{6}$/.test(pincode)) {
+      return next(new appError('Shipping postal code must be a valid 6-digit pincode for Delhivery', 400));
+    }
 
-    // Compute total weight (kg)
+    // Compute total weight (kg) with unit normalization
     let totalWeight = 0;
     const items = (order as any).items || [];
     for (const it of items) {
       const p: any = it.product || {};
-      const w = p?.weight ?? p?.shippingInfo?.weight ?? 0.5; // default 0.5kg
-      totalWeight += Number(w) * Number(it.quantity || 1);
+      const w = p?.shippingInfo?.weight ?? p?.weight ?? 0.5;
+      let wkg = Number(w) || 0.5;
+      if (p?.shippingInfo?.weight == null && typeof p?.weight === 'number' && p.weight > 20) {
+        wkg = Number(p.weight) / 1000; // assume grams -> kg
+      }
+      if (wkg <= 0) wkg = 0.5;
+      totalWeight += wkg * Number(it.quantity || 1);
     }
     if (totalWeight <= 0) totalWeight = 0.5;
 
@@ -249,13 +346,13 @@ export const createDelhiveryShipmentForOrder = async (
       orderNumber: String((order as any).orderNumber || order._id),
       consignee: {
         name: ship.fullName,
-        phone: ship.phone,
-        email: ship.email,
+        phone,
+        email: ship.email || (order as any)?.user?.email,
         address1: ship.addressLine1,
         address2: ship.addressLine2,
         city: ship.city,
         state: ship.state,
-        pincode: ship.postalCode,
+        pincode: pincode,
         country: ship.country || 'India',
       },
       paymentMode: paymentMode as 'Prepaid' | 'COD',

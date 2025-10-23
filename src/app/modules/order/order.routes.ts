@@ -15,6 +15,7 @@ import {
   scheduleDelhiveryPickupForOrder,
   getDelhiveryLabelForOrder,
   trackDelhiveryForOrder,
+  getDelhiveryQuote,
 } from "./order.controller";
 import { auth } from "../../middlewares/authMiddleware";
 
@@ -235,6 +236,9 @@ router.get("/summary/vendor", auth("vendor"), getVendorOrderSummary);
 
 // Vendor orders: list orders that include vendor's products
 router.get("/vendor", auth("vendor"), getVendorOrders);
+
+// Quote should come before parameterized routes
+router.post("/quote/delhivery", auth("user", "admin", "vendor"), getDelhiveryQuote);
 
 router.get("/:id", auth(), getOrderById);
 
