@@ -27,7 +27,7 @@ const options: swaggerJSDoc.Options = {
         description: "Production server main",
       },
       {
-        url: "https://api.atpuae.com",
+        url: "http://localhost:8080",
         description: "Legacy production server",
       },
     ],
