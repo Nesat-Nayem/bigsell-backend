@@ -25,6 +25,7 @@ const router = express.Router();
  *         headerTab: { type: string }
  *         address: { type: string }
  *         iframe: { type: string }
+ *         freeShippingThreshold: { type: number, description: 'Cart total to unlock free shipping' }
  *         createdAt: { type: string, format: date-time }
  *         updatedAt: { type: string, format: date-time }
  *       example:
@@ -41,6 +42,7 @@ const router = express.Router();
  *         headerTab: "BigSell - Best Electronics Deals"
  *         address: "Office 123, Dubai, UAE"
  *         iframe: "<iframe src='https://maps.google.com/...'></iframe>"
+ *         freeShippingThreshold: 10000
  *         createdAt: "2025-08-26 11:00:00"
  *         updatedAt: "2025-08-26 11:00:00"
  *     GeneralSettingsResponse:
@@ -94,6 +96,7 @@ router.get('/', getGeneralSettings);
  *               headerTab: { type: string }
  *               address: { type: string }
  *               iframe: { type: string }
+  *               freeShippingThreshold: { type: number }
  *               favicon: { type: string, format: binary }
  *               logo: { type: string, format: binary }
  *           encoding:
@@ -115,6 +118,7 @@ router.get('/', getGeneralSettings);
  *                 headerTab: "BigSell - Best Electronics Deals"
  *                 address: "Office 123, Dubai, UAE"
  *                 iframe: "<iframe src='https://maps.google.com/...'></iframe>"
+  *                 freeShippingThreshold: 10000
  *     responses:
  *       200:
  *         description: Updated

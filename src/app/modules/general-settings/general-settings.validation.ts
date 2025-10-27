@@ -11,4 +11,12 @@ export const generalSettingsUpdateValidation = z.object({
   headerTab: z.string().optional(),
   address: z.string().optional(),
   iframe: z.string().optional(),
+  freeShippingThreshold: z
+    .preprocess((v) => {
+      if (v === undefined || v === null || v === '') return undefined;
+      if (typeof v === 'number') return v;
+      const n = Number(v as any);
+      return isNaN(n) ? undefined : n;
+    }, z.number().min(0))
+    .optional(),
 });

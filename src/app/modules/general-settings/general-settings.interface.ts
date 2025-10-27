@@ -13,6 +13,7 @@ export interface IGeneralSettings extends Document {
   headerTab?: string;
   address?: string;
   iframe?: string;
+  freeShippingThreshold?: number;
   createdAt: Date;
   updatedAt: Date;
 }
