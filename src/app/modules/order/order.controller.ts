@@ -49,7 +49,7 @@ export const createOrder = async (
     // Validate and process order items
     const orderItems = [];
     let subtotal = 0;
-    let orderWeightKg = 0; // accumulate for shipping quote
+    let orderWeightKg = 0; // accumulate for shipping quote (actual vs volumetric)
     const itemsVendorSubs: Array<{ vendor?: string | null; subtotal: number }> = [];
 
     for (const item of items) {
@@ -88,14 +88,20 @@ export const createOrder = async (
       const itemSubtotal = product.price * item.quantity;
       subtotal += itemSubtotal;
 
-      // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight which may be grams)
-      let wkg = Number((product as any)?.shippingInfo?.weight);
-      if (!wkg || isNaN(wkg)) {
+      // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight (grams)); compare with volumetric weight
+      let actualWkg = Number((product as any)?.shippingInfo?.weight);
+      if (!actualWkg || isNaN(actualWkg)) {
         const raw = Number((product as any)?.weight);
-        if (raw && raw > 20) wkg = raw / 1000; else wkg = raw || 0.5;
+        if (raw && raw > 20) actualWkg = raw / 1000; else actualWkg = raw || 0.5;
       }
-      if (wkg <= 0) wkg = 0.5;
-      orderWeightKg += wkg * Number(item.quantity || 1);
+      if (actualWkg <= 0) actualWkg = 0.5;
+      // volumetric weight in kg using cm dimensions: L*W*H/5000
+      const L = Number((product as any)?.dimensions?.length) || 0;
+      const W = Number((product as any)?.dimensions?.width) || 0;
+      const H = Number((product as any)?.dimensions?.height) || 0;
+      const volumetricWkg = L > 0 && W > 0 && H > 0 ? (L * W * H) / 5000 : 0;
+      const effectiveWkg = Math.max(actualWkg, volumetricWkg || 0);
+      orderWeightKg += (effectiveWkg || actualWkg) * Number(item.quantity || 1);
 
       orderItems.push({
         product: product._id,
@@ -132,7 +138,10 @@ export const createOrder = async (
           paymentMode: (paymentMethod === 'cash_on_delivery') ? 'COD' : 'Pre-paid',
           client: process.env.DELHIVERY_CLIENT,
         } as any);
-        const fee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+        let fee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+        if (Array.isArray(quote) && quote.length) {
+          fee = Number((quote[0]?.total_amount ?? quote[0]?.totalAmount ?? quote[0]?.total) || 0);
+        }
         if (!isNaN(fee) && fee > 0) shippingCost = fee;
       }
     } catch (e) {
@@ -258,17 +267,22 @@ export const getDelhiveryQuote = async (
         qtyMap[id] = (qtyMap[id] || 0) + Math.max(1, Number(it.quantity || 1));
       }
     }
-    const prods = await Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1 }).lean();
+    const prods = await Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1, dimensions: 1 }).lean();
     let totalGrams = 0;
     for (const p of prods as any[]) {
       const q = qtyMap[String(p._id)] || 1;
-      let wkg = Number(p?.shippingInfo?.weight);
-      if (!wkg || isNaN(wkg)) {
+      let actualWkg = Number(p?.shippingInfo?.weight);
+      if (!actualWkg || isNaN(actualWkg)) {
         const raw = Number(p?.weight);
-        if (raw && raw > 20) wkg = raw / 1000; else wkg = raw || 0.5;
+        if (raw && raw > 20) actualWkg = raw / 1000; else actualWkg = raw || 0.5;
       }
-      if (wkg <= 0) wkg = 0.5;
-      totalGrams += Math.round(wkg * 1000) * q;
+      if (actualWkg <= 0) actualWkg = 0.5;
+      const L = Number(p?.dimensions?.length) || 0;
+      const W = Number(p?.dimensions?.width) || 0;
+      const H = Number(p?.dimensions?.height) || 0;
+      const volumetricWkg = L > 0 && W > 0 && H > 0 ? (L * W * H) / 5000 : 0;
+      const effectiveWkg = Math.max(actualWkg, volumetricWkg || 0);
+      totalGrams += Math.round((effectiveWkg || actualWkg) * 1000) * q;
     }
     if (totalGrams <= 0) totalGrams = 500;
 
@@ -281,7 +295,10 @@ export const getDelhiveryQuote = async (
       client: process.env.DELHIVERY_CLIENT,
     } as any);
 
-    const shippingFee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+    let shippingFee = Number((quote?.total_amount ?? quote?.totalAmount ?? quote?.total) || 0);
+    if (Array.isArray(quote) && quote.length) {
+      shippingFee = Number((quote[0]?.total_amount ?? quote[0]?.totalAmount ?? quote[0]?.total) || 0);
+    }
     return res.status(200).json({ success: true, statusCode: 200, message: 'Quote fetched', data: { shippingFee, quote } });
   } catch (error) {
     next(error);

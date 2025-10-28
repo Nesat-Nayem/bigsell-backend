@@ -45,10 +45,7 @@ export interface IProduct extends Document {
   seoKeywords?: string[];
   vendor?: string;
   shippingInfo?: {
-    weight?: number;
-    freeShipping?: boolean;
-    shippingCost?: number;
-    estimatedDelivery?: string;
+    weight?: number; // kg, used for Delhivery chargeable weight calculation
   };
   isDeleted: boolean;
   createdAt: Date;

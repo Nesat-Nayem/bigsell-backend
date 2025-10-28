@@ -286,8 +286,15 @@ export async function delhiveryInvoiceCharges(params: {
   const url = new URL(`${base}/api/kinko/v1/invoice/charges/.json`);
   const cl = params.client || process.env.DELHIVERY_CLIENT || '';
   if (cl) url.searchParams.set('cl', cl);
-  if (params.service) url.searchParams.set('ss', params.service);
-  url.searchParams.set('md', 'Forward');
+  // Ensure required 'ss' (shipment status) is always present: Delivered | RTO | DTO
+  const raw = (params as any).shipmentStatus || params.service;
+  const allowed = new Set(['Delivered', 'RTO', 'DTO']);
+  const ss = allowed.has(String(raw)) ? String(raw) : 'Delivered';
+  url.searchParams.set('ss', ss);
+  // md: mode - required by API: S (Surface) | E (Express)
+  const service = String(params.service || '').trim().toUpperCase();
+  const md = service === 'SURFACE' || service === 'S' ? 'S' : 'E';
+  url.searchParams.set('md', md);
   url.searchParams.set('pt', params.paymentMode);
   url.searchParams.set('o_pin', params.originPincode);
   url.searchParams.set('d_pin', params.destPincode);
