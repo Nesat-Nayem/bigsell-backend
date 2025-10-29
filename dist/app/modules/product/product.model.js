@@ -233,9 +233,6 @@ const ProductSchema = new mongoose_1.Schema({
     },
     shippingInfo: {
         weight: { type: Number, min: 0 },
-        freeShipping: { type: Boolean, default: false },
-        shippingCost: { type: Number, min: 0, default: 0 },
-        estimatedDelivery: { type: String, trim: true },
     },
     isDeleted: {
         type: Boolean,

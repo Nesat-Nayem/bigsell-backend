@@ -13,4 +13,14 @@ exports.generalSettingsUpdateValidation = zod_1.z.object({
     headerTab: zod_1.z.string().optional(),
     address: zod_1.z.string().optional(),
     iframe: zod_1.z.string().optional(),
+    freeShippingThreshold: zod_1.z
+        .preprocess((v) => {
+        if (v === undefined || v === null || v === '')
+            return undefined;
+        if (typeof v === 'number')
+            return v;
+        const n = Number(v);
+        return isNaN(n) ? undefined : n;
+    }, zod_1.z.number().min(0))
+        .optional(),
 });

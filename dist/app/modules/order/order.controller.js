@@ -22,7 +22,7 @@ const coupon_model_1 = require("../coupon/coupon.model");
 const delhivery_1 = require("../../integrations/delhivery");
 // Create new order
 const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     try {
         const actingUser = req.user;
         const { items, shippingAddress, billingAddress, paymentMethod, shippingMethod, notes, couponCode, user: requestedUserId, } = req.body;
@@ -47,7 +47,7 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
         // Validate and process order items
         const orderItems = [];
         let subtotal = 0;
-        let orderWeightKg = 0; // accumulate for shipping quote
+        let orderWeightKg = 0; // accumulate for shipping quote (actual vs volumetric)
         const itemsVendorSubs = [];
         for (const item of items) {
             if (!mongoose_1.default.Types.ObjectId.isValid(item.productId)) {
@@ -78,18 +78,24 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
             }
             const itemSubtotal = product.price * item.quantity;
             subtotal += itemSubtotal;
-            // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight which may be grams)
-            let wkg = Number((_a = product === null || product === void 0 ? void 0 : product.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
-            if (!wkg || isNaN(wkg)) {
+            // accumulate weight (prefer shippingInfo.weight in kg, fallback to product.weight (grams)); compare with volumetric weight
+            let actualWkg = Number((_a = product === null || product === void 0 ? void 0 : product.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
+            if (!actualWkg || isNaN(actualWkg)) {
                 const raw = Number(product === null || product === void 0 ? void 0 : product.weight);
                 if (raw && raw > 20)
-                    wkg = raw / 1000;
+                    actualWkg = raw / 1000;
                 else
-                    wkg = raw || 0.5;
+                    actualWkg = raw || 0.5;
             }
-            if (wkg <= 0)
-                wkg = 0.5;
-            orderWeightKg += wkg * Number(item.quantity || 1);
+            if (actualWkg <= 0)
+                actualWkg = 0.5;
+            // volumetric weight in kg using cm dimensions: L*W*H/5000
+            const L = Number((_b = product === null || product === void 0 ? void 0 : product.dimensions) === null || _b === void 0 ? void 0 : _b.length) || 0;
+            const W = Number((_c = product === null || product === void 0 ? void 0 : product.dimensions) === null || _c === void 0 ? void 0 : _c.width) || 0;
+            const H = Number((_d = product === null || product === void 0 ? void 0 : product.dimensions) === null || _d === void 0 ? void 0 : _d.height) || 0;
+            const volumetricWkg = L > 0 && W > 0 && H > 0 ? (L * W * H) / 5000 : 0;
+            const effectiveWkg = Math.max(actualWkg, volumetricWkg || 0);
+            orderWeightKg += (effectiveWkg || actualWkg) * Number(item.quantity || 1);
             orderItems.push({
                 product: product._id,
                 name: product.name,
@@ -122,7 +128,10 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
                     paymentMode: (paymentMethod === 'cash_on_delivery') ? 'COD' : 'Pre-paid',
                     client: process.env.DELHIVERY_CLIENT,
                 });
-                const fee = Number(((_c = (_b = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _b !== void 0 ? _b : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _c !== void 0 ? _c : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+                let fee = Number(((_f = (_e = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _e !== void 0 ? _e : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _f !== void 0 ? _f : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+                if (Array.isArray(quote) && quote.length) {
+                    fee = Number(((_k = (_h = (_g = quote[0]) === null || _g === void 0 ? void 0 : _g.total_amount) !== null && _h !== void 0 ? _h : (_j = quote[0]) === null || _j === void 0 ? void 0 : _j.totalAmount) !== null && _k !== void 0 ? _k : (_l = quote[0]) === null || _l === void 0 ? void 0 : _l.total) || 0);
+                }
                 if (!isNaN(fee) && fee > 0)
                     shippingCost = fee;
             }
@@ -130,7 +139,7 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
         catch (e) {
             // ignore quote failures, keep fallback shipping cost
         }
-        const tax = subtotal * 0.05; // 5% tax
+        const tax = 0; // No tax
         let discount = 0;
         // Apply coupon if provided (admin global or vendor-specific)
         if (couponCode) {
@@ -166,7 +175,7 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
                 discount = Math.max(0, amount);
             }
         }
-        const totalAmount = subtotal + shippingCost + tax - discount;
+        const totalAmount = subtotal + shippingCost - discount;
         // Create order
         const order = new order_model_1.Order({
             user: userId,
@@ -222,7 +231,7 @@ const createOrder = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
 exports.createOrder = createOrder;
 // Get approximate Delhivery shipping charges (for checkout)
 const getDelhiveryQuote = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     try {
         const { items, destPincode, paymentMode = 'Pre-paid', service } = req.body || {};
         const originPincode = process.env.DELHIVERY_ORIGIN_PINCODE;
@@ -244,21 +253,26 @@ const getDelhiveryQuote = (req, res, next) => __awaiter(void 0, void 0, void 0, 
                 qtyMap[id] = (qtyMap[id] || 0) + Math.max(1, Number(it.quantity || 1));
             }
         }
-        const prods = yield product_model_1.Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1 }).lean();
+        const prods = yield product_model_1.Product.find({ _id: { $in: productIds }, isDeleted: false }, { weight: 1, shippingInfo: 1, dimensions: 1 }).lean();
         let totalGrams = 0;
         for (const p of prods) {
             const q = qtyMap[String(p._id)] || 1;
-            let wkg = Number((_a = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
-            if (!wkg || isNaN(wkg)) {
+            let actualWkg = Number((_a = p === null || p === void 0 ? void 0 : p.shippingInfo) === null || _a === void 0 ? void 0 : _a.weight);
+            if (!actualWkg || isNaN(actualWkg)) {
                 const raw = Number(p === null || p === void 0 ? void 0 : p.weight);
                 if (raw && raw > 20)
-                    wkg = raw / 1000;
+                    actualWkg = raw / 1000;
                 else
-                    wkg = raw || 0.5;
+                    actualWkg = raw || 0.5;
             }
-            if (wkg <= 0)
-                wkg = 0.5;
-            totalGrams += Math.round(wkg * 1000) * q;
+            if (actualWkg <= 0)
+                actualWkg = 0.5;
+            const L = Number((_b = p === null || p === void 0 ? void 0 : p.dimensions) === null || _b === void 0 ? void 0 : _b.length) || 0;
+            const W = Number((_c = p === null || p === void 0 ? void 0 : p.dimensions) === null || _c === void 0 ? void 0 : _c.width) || 0;
+            const H = Number((_d = p === null || p === void 0 ? void 0 : p.dimensions) === null || _d === void 0 ? void 0 : _d.height) || 0;
+            const volumetricWkg = L > 0 && W > 0 && H > 0 ? (L * W * H) / 5000 : 0;
+            const effectiveWkg = Math.max(actualWkg, volumetricWkg || 0);
+            totalGrams += Math.round((effectiveWkg || actualWkg) * 1000) * q;
         }
         if (totalGrams <= 0)
             totalGrams = 500;
@@ -270,7 +284,10 @@ const getDelhiveryQuote = (req, res, next) => __awaiter(void 0, void 0, void 0, 
             service,
             client: process.env.DELHIVERY_CLIENT,
         });
-        const shippingFee = Number(((_c = (_b = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _b !== void 0 ? _b : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _c !== void 0 ? _c : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+        let shippingFee = Number(((_f = (_e = quote === null || quote === void 0 ? void 0 : quote.total_amount) !== null && _e !== void 0 ? _e : quote === null || quote === void 0 ? void 0 : quote.totalAmount) !== null && _f !== void 0 ? _f : quote === null || quote === void 0 ? void 0 : quote.total) || 0);
+        if (Array.isArray(quote) && quote.length) {
+            shippingFee = Number(((_k = (_h = (_g = quote[0]) === null || _g === void 0 ? void 0 : _g.total_amount) !== null && _h !== void 0 ? _h : (_j = quote[0]) === null || _j === void 0 ? void 0 : _j.totalAmount) !== null && _k !== void 0 ? _k : (_l = quote[0]) === null || _l === void 0 ? void 0 : _l.total) || 0);
+        }
         return res.status(200).json({ success: true, statusCode: 200, message: 'Quote fetched', data: { shippingFee, quote } });
     }
     catch (error) {

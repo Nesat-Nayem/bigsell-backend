@@ -44,9 +44,6 @@ const createProductValidation = zod_1.z.object({
         vendor: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid vendor ID').optional(),
         shippingInfo: zod_1.z.object({
             weight: zod_1.z.number().min(0).optional(),
-            freeShipping: zod_1.z.boolean().optional(),
-            shippingCost: zod_1.z.number().min(0).optional(),
-            estimatedDelivery: zod_1.z.string().optional(),
         }).optional(),
     }),
 });
@@ -92,9 +89,6 @@ const updateProductValidation = zod_1.z.object({
         vendor: zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid vendor ID').optional(),
         shippingInfo: zod_1.z.object({
             weight: zod_1.z.number().min(0).optional(),
-            freeShipping: zod_1.z.boolean().optional(),
-            shippingCost: zod_1.z.number().min(0).optional(),
-            estimatedDelivery: zod_1.z.string().optional(),
         }).optional(),
     }),
 });

@@ -48,6 +48,7 @@ const GeneralSettingsSchema = new mongoose_1.Schema({
     headerTab: { type: String, trim: true },
     address: { type: String, trim: true },
     iframe: { type: String, trim: true },
+    freeShippingThreshold: { type: Number, default: 0 },
 }, {
     timestamps: true,
     toJSON: {
