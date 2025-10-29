@@ -32,6 +32,7 @@ import { subscriptionIncludeRouter } from "../modules/subscription-include/subsc
 import { vendorRouter } from "../modules/vendor/vendor.routes";
 import { addressRouter } from "../modules/address/address.routes";
 import { couponRouter } from "../modules/coupon/coupon.routes";
+import { teamRouter } from "../modules/team/team.routes";
 
 const router = Router();
 const moduleRoutes = [
@@ -192,6 +193,10 @@ const moduleRoutes = [
   {
     path: "/coupons",
     route: couponRouter,
+  },
+  {
+    path: "/teams",
+    route: teamRouter,
   },
 ];
 

@@ -18,7 +18,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: (req: Request, file: Express.Multer.File) => {
+    folder: (req: Request, _file: Express.Multer.File) => {
       if (req.originalUrl.includes('/products')) {
         return 'restaurant-products';
       } else if (req.originalUrl.includes('/categories') || req.originalUrl.includes('/productsCategory')) {
@@ -27,6 +27,8 @@ const storage = new CloudinaryStorage({
         return 'restaurant-banners';
       } else if (req.originalUrl.includes('/blogs')) {
         return 'restaurant-blogs';
+      } else if (req.originalUrl.includes('/teams')) {
+        return 'restaurant-teams';
       }
       return 'restaurant-uploads';
     },
