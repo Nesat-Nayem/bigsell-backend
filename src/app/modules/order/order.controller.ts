@@ -147,7 +147,7 @@ export const createOrder = async (
     } catch (e) {
       // ignore quote failures, keep fallback shipping cost
     }
-    const tax = subtotal * 0.05; // 5% tax
+    const tax = 0; // No tax
     let discount = 0;
 
     // Apply coupon if provided (admin global or vendor-specific)
@@ -186,7 +186,7 @@ export const createOrder = async (
       }
     }
 
-    const totalAmount = subtotal + shippingCost + tax - discount;
+    const totalAmount = subtotal + shippingCost - discount;
 
     // Create order
     const order = new Order({
