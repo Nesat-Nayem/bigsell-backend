@@ -22,15 +22,15 @@ const options = {
         },
         servers: [
             {
-                url: "http://localhost:8080",
+                url: "https://api.atpuae.com",
                 description: "Development server",
             },
             {
-                url: "http://localhost:8080",
+                url: "https://api.atpuae.com",
                 description: "Production server main",
             },
             {
-                url: "http://localhost:8080",
+                url: "https://api.atpuae.com",
                 description: "Legacy production server",
             },
         ],
